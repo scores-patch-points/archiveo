@@ -1,0 +1,2 @@
+Vendored copy of scores-patch-points/Alhazen alhazen.js (commit 5ca3278), unmodified.
+Used for readGridFromText: it tells archiveo when a span is a text table so the layout is kept in a fixed-width face.

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>archiveo modal demo</title>
+<style>
+  :root{color-scheme:light dark;--bg:#fff;--fg:#1b1b1b;--muted:#666;--line:#ddd}
+  @media (prefers-color-scheme:dark){:root{--bg:#171717;--fg:#e8e8e8;--muted:#9a9a9a;--line:#333}}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 Georgia,serif}
+  main{max-width:660px;margin:0 auto;padding:48px 20px 120px}
+  h1{font:700 30px/1.15 system-ui,sans-serif;letter-spacing:-.02em}
+  p.by{font:13px system-ui,sans-serif;color:var(--muted)}
+  button{font:14px system-ui,sans-serif;padding:7px 14px;border:1px solid var(--line);border-radius:6px;background:transparent;color:inherit;cursor:pointer}
+  blockquote{margin:22px 0;padding:2px 0 2px 16px;border-left:3px solid #d52824}
+  blockquote cite{display:block;font:13px system-ui,sans-serif;color:var(--muted);margin-top:6px}
+  pre{font:12px/1.5 ui-monospace,Menlo,monospace;background:rgba(127,127,127,.12);padding:12px;border-radius:6px;overflow:auto;white-space:pre-wrap}
+  .tall{height:900px}
+</style>
+</head>
+<body>
+<main>
+  <h1>A page that cites its sources</h1>
+  <p class="by">This is an ordinary host page. The button opens archiveo as a modal on top of it.</p>
+  <p>Scroll lock, Escape, backdrop click, focus return and theme are handled by the helper; the host only supplies a link and spans and gets the chosen spans back as data.</p>
+  <p>
+    <button id="open">Cite bytes…</button>
+    <button id="open-search">Search the archives…</button>
+    <button id="open-empty">Open empty</button>
+  </p>
+  <div id="out"></div>
+  <p class="by">The block below only exists to make this page scroll, so you can check that it stays put behind the modal.</p>
+  <div class="tall"></div>
+</main>
+<script src="embed.js"></script>
+<script>
+  // ?src=http://other-origin/archiveo/ lets you test the cross-origin case.
+  var src = new URLSearchParams(location.search).get('src') || undefined;
+  var out = document.getElementById('out');
+
+  function show(result) {
+    out.replaceChildren();
+    if (!result) { out.append(Object.assign(document.createElement('p'), { textContent: 'Closed without choosing.', className: 'by' })); return; }
+    result.sources.forEach(function (s) {
+      s.spans.forEach(function (sp) {
+        var bq = document.createElement('blockquote');
+        bq.textContent = sp.label || sp.token;
+        var c = document.createElement('cite');
+        c.textContent = s.url + ' · bytes ' + sp.start + '–' + sp.end;
+        bq.append(c);
+        out.append(bq);
+      });
+    });
+    var pre = document.createElement('pre');
+    pre.textContent = JSON.stringify({ link: result.link, sources: result.sources }, null, 2);
+    out.append(pre);
+  }
+
+  document.getElementById('open').onclick = function () {
+    Archiveo.open({
+      src: src,
+      url: 'https://archive.org/download/bucolica19917gut/19917-8.txt',
+      spans: ['800-1099:First eclogue', { start: 52952, end: 53040, label: 'Colophon' }],
+      action: 'Insert citation'
+    }).closed.then(show);
+  };
+  document.getElementById('open-search').onclick = function () {
+    Archiveo.open({ src: src, search: 'eclogues virgil', provider: 'wiki', action: 'Cite this' }).closed.then(show);
+  };
+  document.getElementById('open-empty').onclick = function () {
+    Archiveo.open({ src: src }).closed.then(show);
+  };
+</script>
+</body>
+</html>
