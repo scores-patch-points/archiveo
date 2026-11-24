@@ -65,6 +65,10 @@ Without the helper, embed `index.html?embed=1&host=<your origin>` in an iframe (
 
 The app only accepts messages from its parent window and, once it knows the host origin (the `host=` parameter, else the referrer), only from that origin, and only posts to it. A proxy setting is never read from a link or a message.
 
+## Backing a span up to the Wayback Machine
+
+`gateway/` is a small service for your own VM that backs text up to the Wayback Machine with no archive.org account: it hosts the text as a file for a few seconds, the Wayback Machine captures it, the capture is read back and checked, and **the file is deleted from the VM's disk as soon as the capture is available**. It reuses an existing public route for the temporary page and keeps its API private behind an SSH tunnel, so nothing in nginx changes. In Settings, give archiveo the gateway's address and key, then press **Back up to Wayback** on a span; the page counts down to the moment it is available. Whatever is sent becomes public and permanent. See `gateway/README.md` for what was measured, the limits, and how to deploy.
+
 ## Reading other sites (CORS)
 
 A page can only read bytes from hosts that send CORS headers. archive.org, the Library of Congress, `raw.githubusercontent.com`, GitHub's API and Wikimedia's REST/API endpoints do. For others, Settings has a CORS proxy template (`https://your-proxy.example/?url={url}`), off by default because the proxy sees every link you load. Servers that ignore `Range` still work: the page reads from the start up to the span (at most 64 MiB).

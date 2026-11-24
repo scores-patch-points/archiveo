@@ -218,6 +218,16 @@ mark,.mark{background:var(--tint);color:var(--strong);border-radius:2px}
 .result .go{margin-top:6px;font-size:13px}
 .hint{font-size:13px;color:var(--muted);margin:4px 0}
 
+/* backup countdown */
+.backup{margin:8px 0 12px;padding:10px 12px;border:1px solid var(--hair);background:var(--bg2);border-radius:4px;font-size:14px}
+.backup .bline{color:var(--name)}
+.backup .bad{color:var(--err)}
+.btrack{height:4px;margin:8px 0 2px;background:var(--hair);border-radius:2px;overflow:hidden}
+.btrack i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s linear}
+.blinks{margin-top:6px}
+.blinks p{margin:6px 0 0}
+@media (prefers-reduced-motion:reduce){.btrack i{transition:none}}
+
 /* docs */
 details{border-top:1px solid var(--hair);padding:12px 0;margin:0}
 details:last-of-type{border-bottom:1px solid var(--hair)}
@@ -312,6 +322,13 @@ footer{margin-top:30px;color:var(--muted);font-size:13px}
     <summary>Use it as a modal on your page</summary>
     <p>Add the helper, open the modal, and get the chosen spans back as data. See <code>README.md</code> for the message protocol if you would rather use a bare iframe.</p>
     <pre class="data" id="embedsnip"></pre>
+  </details>
+  <details id="gatewaysettings">
+    <summary>Settings: Wayback backup gateway</summary>
+    <p class="muted">Back a span up to the Internet Archive’s Wayback Machine through a gateway you run (see <code>gateway/</code>). It hosts the text on a page for a moment, the Wayback Machine captures that page, and once the capture is available the page is deleted from the server. <b>The capture is public and permanent.</b> A gateway kept private on a VM is reached through an SSH tunnel: run <code>gateway/tunnel.sh</code> and use <code>http://localhost:8850</code>. The key stays in this browser and is sent only to your gateway.</p>
+    <div class="bar"><input id="gwurl" type="text" placeholder="http://localhost:8850 (through the tunnel)" spellcheck="false" autocomplete="off" aria-label="Gateway address"><input id="gwkey" type="password" placeholder="key" autocomplete="off" aria-label="Gateway key"></div>
+    <p><button id="gwsave" type="button">Save</button> <button id="gwtest" type="button">Test</button></p>
+    <p id="gwmsg" class="muted"></p>
   </details>
   <details id="settings">
     <summary>Settings: CORS proxy</summary>
@@ -912,7 +929,7 @@ function renderDoc(src, parts, enc, { max = 30000, truncated = false } = {}) {
 /* ---------- state ---------- */
 let S = { sources: [], ctx: 0, view: 'doc', focus: null, search: null };
 let messages = [];
-let openSettings = false;
+let openSettings = false, openGateway = false;
 const shell = $('#shell'), stage = $('#stage');
 const isNarrow = () => matchMedia('(max-width:720px)').matches;
 
@@ -1243,6 +1260,65 @@ function searchView(inner) {
   paintResults();
 }
 
+/* ---------- back up to the Wayback Machine, through your own gateway ---------- */
+const gatewayReady = () => /^https?:\/\//.test(store.get('archiveo.gateway') || '') && (store.get('archiveo.gatewayKey') || '').length >= 24;   // regex-ok: URL scheme
+async function sha256Hex(bytes) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(b => b.toString(16).padStart(2, '0')).join(''); }
+async function backupDocument(src, sp, range, mid, text, enc) {   // the page the archive will keep: a few provenance lines, then the span exactly
+  return ['archiveo backup of a span', `source: ${src.url}`, `bytes: ${range.a}-${range.a + mid.length - 1} (${mid.length} bytes)`,
+    ...(sp.label ? [`label: ${sp.label}`] : []), `read as: ${enc}`, `sha256 of those bytes: ${await sha256Hex(mid)}`, `kept: ${new Date().toISOString()}`, '---', text].join('\n');
+}
+async function runBackup(doc, box) {
+  const base = (store.get('archiveo.gateway') || '').replace(/\/+$/, ''), key = store.get('archiveo.gatewayKey') || '';   // regex-ok: trailing slashes
+  const line = h('div', { class: 'bline', text: 'Sending…' }), fill = h('i'), links = h('div', { class: 'blinks' });
+  box.hidden = false; box.replaceChildren(line, h('div', { class: 'btrack' }, fill), links);
+  let eta = null, at = 0, total = 0, message = 'Sending…', finished = false;
+  const tick = () => {                                           // count down between the gateway's progress lines
+    if (finished) return;
+    const left = eta == null ? null : Math.max(0, eta - (performance.now() - at) / 1000);
+    line.textContent = left == null ? message : left > 0 ? `${message}. Available in about ${Math.ceil(left)} s` : `${message}. Taking a little longer than usual`;
+    fill.style.width = left == null || !total ? '0%' : Math.min(97, Math.round(100 * (1 - left / total))) + '%';
+  };
+  const timer = setInterval(() => { if (finished || !box.isConnected) clearInterval(timer); else tick(); }, 250);
+  const fail = (text, retry) => {
+    finished = true; clearInterval(timer); fill.style.width = '0%';
+    line.replaceChildren(h('span', { class: 'bad', text }), ' ', h('button', { type: 'button', text: 'Try again', onclick: retry }));
+  };
+  try {
+    const res = await fetch(base + '/backup', { method: 'POST', headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' }, body: JSON.stringify({ text: doc }), credentials: 'omit', referrerPolicy: 'no-referrer' });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      return fail(res.status === 401 ? 'The gateway did not accept the key.' : res.status === 429 ? `The gateway spaces backups out: try again in ${Math.ceil(j.retry_after_s || 10)} s.` : j.error || `The gateway answered HTTP ${res.status}.`, () => runBackup(doc, box));
+    }
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const ln = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!ln) continue;
+        const ev = JSON.parse(ln);
+        if (ev.phase === 'error') return fail(ev.message || 'The backup failed.', () => runBackup(doc, box));
+        if (ev.phase === 'done') {
+          finished = true; clearInterval(timer); fill.style.width = '100%';
+          line.textContent = `Available. Captured and checked in ${ev.capture.seconds} s; ` + (ev.capture.deleted ? 'the temporary page is deleted from the server.' : 'the temporary page could not be confirmed deleted, so check the server.');
+          const a = (href, text) => h('a', { href, target: '_blank', rel: 'noopener noreferrer', text });
+          links.replaceChildren(a(ev.capture.url, 'Open the capture'), ' · ', a(ev.capture.raw, 'raw bytes'), ' · ',
+            h('button', { type: 'button', text: 'Copy link', onclick: e => copy(ev.capture.url, e.currentTarget) }),
+            h('p', { class: 'muted', text: 'It is public and permanent now.' }));
+          return;
+        }
+        eta = ev.eta_s; at = performance.now(); message = ev.message || ev.phase; if (!total) total = eta || 0; tick();
+      }
+    }
+    if (!finished) fail('The gateway stopped before it finished.', () => runBackup(doc, box));
+  } catch (err) {
+    fail(err instanceof TypeError ? 'Could not reach the gateway. Check its address in Settings, and that it lists this site as an allowed origin.' : (err && err.message) || String(err), () => runBackup(doc, box));
+  }
+}
+
 /* ---------- stage: index ---------- */
 const EXAMPLES = [
   { title: 'Two labeled spans from a Project Gutenberg text on archive.org', hint: 'The file says in its own header that it is ISO-8859-1, and the page reads it that way.',
@@ -1303,6 +1379,27 @@ function docs() {
     msg.textContent = v ? 'Saved. Requests now go through that proxy.' : 'Proxy cleared.';
   };
   if (openSettings) { $('#settings', f).open = true; openSettings = false; }
+  const gu = $('#gwurl', f), gk = $('#gwkey', f), gm = $('#gwmsg', f);
+  gu.value = store.get('archiveo.gateway') || ''; gk.value = store.get('archiveo.gatewayKey') || '';
+  const gwOk = u => /^https:\/\//i.test(u) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(u);   // regex-ok: URL scheme
+  $('#gwsave', f).onclick = () => {
+    const u = gu.value.trim().replace(/\/+$/, ''), k = gk.value.trim();      // regex-ok: trailing slashes
+    if (u && !gwOk(u)) { gm.textContent = 'The address must start with https:// (http:// works only for localhost).'; return; }
+    if (k && k.length < 24) { gm.textContent = 'The key is at least 24 characters.'; return; }
+    store.set('archiveo.gateway', u); store.set('archiveo.gatewayKey', k); gm.textContent = u ? 'Saved in this browser.' : 'Cleared.';
+  };
+  $('#gwtest', f).onclick = async () => {
+    const u = gu.value.trim().replace(/\/+$/, ''), k = gk.value.trim();      // regex-ok: trailing slashes
+    if (!gwOk(u)) { gm.textContent = 'Enter the gateway address first.'; return; }
+    gm.textContent = 'Testing…';
+    try {
+      const up = await fetch(u + '/health', { credentials: 'omit', referrerPolicy: 'no-referrer' });
+      if (!up.ok) throw new Error(`HTTP ${up.status}`);
+      const au = await fetch(u + '/auth', { headers: { Authorization: 'Bearer ' + k }, credentials: 'omit', referrerPolicy: 'no-referrer' });
+      gm.textContent = au.ok ? 'Reachable, and the key is accepted.' : 'Reachable, but the key was not accepted.';
+    } catch { gm.textContent = 'Could not reach it. Check the address, and that the gateway lists this site as an allowed origin.'; }
+  };
+  if (openGateway) { $('#gatewaysettings', f).open = true; openGateway = false; }
   return f;
 }
 
@@ -1339,9 +1436,11 @@ function spanView(src, sp, i, si) {
   const bSave = h('button', { type: 'button', text: 'Save bytes', disabled: true });
   const bSee = h('button', { type: 'button', text: 'Browse around it' });
   const bDel = h('button', { type: 'button', class: 'ghost', text: 'Remove span' });
+  const bBackup = h('button', { type: 'button', text: 'Back up to Wayback', title: 'Have the Wayback Machine keep this span, through your gateway', disabled: true });
+  const backupBox = h('div', { class: 'backup', hidden: true, 'aria-live': 'polite' });
   const bytes = h('div', { class: 'bytes' });
   const lab = h('span', { class: 'lab', text: 'Bytes' });
-  wrap.append(h('div', { class: 'quote' }, qbody, who, cite), h('div', { class: 'actions' }, bCopy, bLink, bSave, bSee, bDel),
+  wrap.append(h('div', { class: 'quote' }, qbody, who, cite), h('div', { class: 'actions' }, bCopy, bLink, bSave, bBackup, bSee, bDel), backupBox,
     h('div', { class: 'bytehead' }, lab, controls(src, true)), bytes);
 
   const encAtBuild = encOf(src);
@@ -1351,6 +1450,11 @@ function spanView(src, sp, i, si) {
   bSave.onclick = () => mid && saveBytes(mid, `${srcName(src.url)}.${range.a}-${range.b}.bin`);
   bSee.onclick = () => { const r = range || knownRange(src, sp); src.browse.off = Math.max(0, (r ? r.a : sp.start || 0) - 256); src.browse.sel = null; openPart('b'); };
   bDel.onclick = () => removeSpan(src, i);
+  bBackup.onclick = async () => {
+    if (!gatewayReady()) { backupBox.hidden = false; backupBox.replaceChildren('Set the gateway address and key first. ', h('button', { type: 'button', text: 'Open settings', onclick: () => { openGateway = true; openIndex(); } })); return; }
+    bBackup.disabled = true;
+    try { await runBackup(await backupDocument(src, sp, range, mid, midText, encOf(src)), backupBox); } finally { bBackup.disabled = false; }
+  };
   const citeBase = `${srcName(src.url)} · ${srcHost(src.url)}`;
   cite.textContent = `${citeBase} · ${rangeText(sp)}`;
   const say = (cls, text, ...extra) => bytes.append(h('div', { class: cls }, text, ...extra));
@@ -1384,7 +1488,7 @@ function spanView(src, sp, i, si) {
     const before = all.subarray(0, s0), after = got === len ? all.subarray(bi + got) : new Uint8Array(0);
     const hasCtx = before.length + after.length > 0;
     if (got > 0) lab.textContent = `Bytes ${n0(range.a)}–${n0(range.a + got - 1)} · ${n0(got)} B`;
-    bSave.disabled = got === 0; bCopy.disabled = got === 0;
+    bSave.disabled = got === 0; bCopy.disabled = got === 0; bBackup.disabled = got === 0;
 
     const notes = [];
     if (v.status === 416 || got === 0) { const t = v.total ?? sizes.get(src.url); notes.push(`This span starts beyond the end of the file${t != null ? ` (${n0(t)} bytes)` : ''}.`); }

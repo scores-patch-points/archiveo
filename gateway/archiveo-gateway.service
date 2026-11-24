@@ -1,0 +1,25 @@
+[Unit]
+Description=archiveo gateway: host a page briefly, have the Wayback Machine capture it, delete it (loopback 8850 only; pages go out as files through the existing /samples/ route)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=admin
+WorkingDirectory=/mnt/watch/archiveo-gateway
+EnvironmentFile=/mnt/watch/archiveo-gateway/gateway.env
+ExecStart=/usr/bin/python3 /mnt/watch/archiveo-gateway/server.py
+Restart=always
+RestartSec=3
+Nice=5
+# it writes one small file at a time, only into the folder above, and deletes it when the capture is checked
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/samples/_archiveo
+
+# whatever happens, a stop leaves none of our pages behind (24-character names only; nothing else in the folder is touched)
+ExecStopPost=/bin/sh -c 'rm -f /srv/samples/_archiveo/????????????????????????.txt /srv/samples/_archiveo/.tmp-????????????????????????'
+
+[Install]
+WantedBy=multi-user.target
