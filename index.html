@@ -6,7 +6,7 @@
 <meta name="referrer" content="no-referrer">
 <meta name="color-scheme" content="light dark">
 <title>archiveo</title>
-<meta name="description" content="Cite exact bytes. Point archiveo at any link, such as archive.org, name the byte ranges, and the ranges live in the URL.">
+<meta name="description" content="Link to the exact words. Add any document, highlight the passage you want, and copy a link that opens right on it.">
 <script>
 /* Set the theme before first paint so a modal never flashes the wrong one. */
 (function () {
@@ -158,14 +158,6 @@ input.who:hover,input.who:focus{border-bottom-color:var(--badge)}
 pre.data{margin:0;padding:6px 0 18px;font:13px/1.6 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere;color:var(--fg)}
 .ctx{color:var(--muted)}
 mark,.mark{background:var(--tint);color:var(--strong);border-radius:2px}
-.hex{padding:6px 0 18px;overflow-x:auto;font:12.5px/1.6 var(--mono);white-space:pre}
-.hex i{font-style:normal}
-.haddr{margin-right:1.5ch;color:var(--muted)}
-.hbytes{margin-right:1.5ch}
-.hex .in{background:var(--tint);color:var(--strong)}
-.hex .sel{background:var(--tint2);color:var(--strong)}
-.hex.pick{user-select:none;-webkit-user-select:none}
-.hex.pick i[data-o]{cursor:crosshair}
 .note,.err{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;margin:8px 0;padding:7px 10px;border-radius:4px;font-size:13px}
 .note{background:var(--warn-bg);color:var(--warn)}
 .err{background:var(--err-bg);color:var(--err)}
@@ -175,7 +167,8 @@ mark,.mark{background:var(--tint);color:var(--strong);border-radius:2px}
 
 /* browse + find */
 .bbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 0;font-size:13px;color:var(--muted)}
-.bbar input.off{width:12ch;padding:3px 8px;font-family:var(--mono)}
+.bbar .jumpbox{display:flex;gap:8px;align-items:center}
+.bbar input.jump{width:min(240px,45vw);padding:0;accent-color:var(--accent)}
 .bbar button,.selbar button{padding:3px 10px;font-size:13px}
 .selbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 0;border-top:1px solid var(--hair);font-size:13px}
 .selbar input{flex:1 1 140px}
@@ -187,7 +180,7 @@ mark,.mark{background:var(--tint);color:var(--strong);border-radius:2px}
 .matches{margin-top:8px;border-top:1px solid var(--hair)}
 .match{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--hair)}
 .match .mo{font:12px var(--mono);color:var(--muted);flex:none}
-.match .mt{flex:1 1 260px;min-width:0;font:13px/1.45 var(--mono);overflow-wrap:anywhere;white-space:pre-wrap}
+.match .mt{flex:1 1 260px;min-width:0;font:13px/1.45 var(--sans);overflow-wrap:anywhere}
 .match button{padding:1px 8px;font-size:12px}
 
 /* picker, search */
@@ -228,6 +221,22 @@ mark,.mark{background:var(--tint);color:var(--strong);border-radius:2px}
 .blinks p{margin:6px 0 0}
 @media (prefers-reduced-motion:reduce){.btrack i{transition:none}}
 
+/* adding a document, and the link bar under the reader */
+.addbox{margin:0 0 20px;padding:16px;border:1px solid var(--hair);background:var(--bg2);border-radius:6px}
+.addform{display:flex;gap:8px}
+.addform input{flex:1;padding:9px 12px;font-size:16px}
+.or{margin:10px 0;color:var(--muted);font-size:13px}
+.updrop{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.shell.dropping::after{content:'Drop a file to add it';position:absolute;inset:0;z-index:30;display:grid;place-items:center;font:700 22px var(--sans);color:var(--strong);background:var(--bg);opacity:.94;border:3px dashed var(--accent)}
+.linkbar{position:sticky;bottom:-56px;z-index:3;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 0;margin-top:6px;background:var(--bg);border-top:1px solid var(--hair);font-size:13px}
+.linkbar .linkfield{flex:1 1 260px;font:12px var(--mono);padding:6px 8px}
+.findwrap{border:0;padding:8px 0 4px;margin:0}
+.findwrap summary{font-weight:600;color:var(--muted)}
+.bbar .grow{flex:1}
+pre.data.reader{font:16px/1.65 var(--sans);padding:14px 0 22px}
+pre.data.reader.mono{font:13.5px/1.55 var(--mono)}
+.needfile{padding-top:6px}
+
 /* docs */
 details{border-top:1px solid var(--hair);padding:12px 0;margin:0}
 details:last-of-type{border-bottom:1px solid var(--hair)}
@@ -256,29 +265,25 @@ footer{margin-top:30px;color:var(--muted);font-size:13px}
 </style>
 </head>
 <body>
+<input id="filein" type="file" multiple hidden aria-label="Upload a file">
 <div id="shell" class="shell">
   <header class="top">
-    <button id="navtoggle" class="icon ghost" type="button" aria-label="Show sources and parts">☰</button>
+    <button id="navtoggle" class="icon ghost" type="button" aria-label="Show documents and passages">☰</button>
     <button id="brand" class="brand" type="button" title="Back to the index">archiveo</button>
     <nav id="crumbs" class="crumbs" aria-label="Where you are"></nav>
     <span class="grow"></span>
     <button id="copylink" type="button" title="Copy a link that reopens this exact view">Copy link</button>
-    <button id="usebtn" class="primary" type="button" hidden>Use spans</button>
+    <button id="usebtn" class="primary" type="button" hidden>Use passages</button>
     <button id="theme" class="icon ghost" type="button"></button>
     <button id="closebtn" class="icon ghost" type="button" aria-label="Close" title="Close" hidden>✕</button>
   </header>
 
-  <aside id="nav" class="nav" aria-label="Sources and parts">
+  <aside id="nav" class="nav" aria-label="Documents and passages">
     <div id="navhead" class="navhead"></div>
     <form id="addsrc" class="navform">
-      <input id="url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Paste a link or search…" aria-label="Source link or search">
+      <input id="url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="Type a link, or search…" aria-label="Source link or search">
       <button type="submit" class="primary">Go</button>
-    </form>
-    <form id="addspan" class="navform stack" hidden>
-      <input id="spaninput" type="text" autocomplete="off" spellcheck="false" placeholder="1000-1199, 0x400+64, -512" aria-label="New span">
-      <input id="spanlabel" type="text" autocomplete="off" placeholder="label (optional)" aria-label="Label for the new span">
-      <button type="submit" class="primary">Add</button>
-      <span id="spanmsg" class="msg"></span>
+      <button type="button" id="uploadbtn" title="Upload a file from this computer">Upload</button>
     </form>
     <div id="navlist" class="navlist" role="list"></div>
   </aside>
@@ -289,27 +294,29 @@ footer{margin-top:30px;color:var(--muted);font-size:13px}
 
 <template id="tpl-docs">
   <details id="format">
-    <summary>Link format</summary>
-    <p><code>#u=<i>link</i>&amp;s=<i>span</i>&amp;s=<i>span</i></code> Every <code>s=</code> belongs to the <code>u=</code> before it. Repeat <code>u=</code> for more sources.</p>
+    <summary>For developers: how a link is built</summary>
+    <p>You never need to type any of this: highlighting words writes it for you. Under the hood a passage is a byte range of the file, so a link keeps meaning exactly the same words for as long as the file stays the same.</p>
+    <p><code>#u=<i>link</i>&amp;s=<i>span</i>&amp;s=<i>span</i></code> Every <code>s=</code> belongs to the <code>u=</code> before it. Repeat <code>u=</code> for more documents.</p>
     <table>
       <tr><td><code>1000-1199</code></td><td>bytes 1000 through 1199, <b>inclusive</b>, exactly like an HTTP <code>Range</code> header (200 bytes)</td></tr>
       <tr><td><code>1000+200</code></td><td>200 bytes starting at 1000 (the same bytes)</td></tr>
       <tr><td><code>0x400-0x4ff</code></td><td>hex works anywhere a number does</td></tr>
       <tr><td><code>4096-</code></td><td>from 4096 to the end of the file</td></tr>
       <tr><td><code>-512</code></td><td>the last 512 bytes</td></tr>
+      <tr><td><code>u=local:&lt;sha-256&gt;&amp;n=name</code></td><td>a file uploaded in someone's browser, named by its content hash; whoever opens the link uploads the same file to see the passage</td></tr>
       <tr><td><code>1000-1199:intro</code></td><td>a label goes after a colon (percent-encode spaces and commas)</td></tr>
       <tr><td><code>s=0-99,200-299</code></td><td>commas put several spans in one <code>s=</code></td></tr>
       <tr><td><code>f=1.2</code></td><td>open source 1, part 2 (<code>f=0</code> is the index, <code>f=1.b</code> is the file browser)</td></tr>
-      <tr><td><code>c=256</code></td><td>256 bytes of context around each span</td></tr>
-      <tr><td><code>v=text</code> <code>v=hex</code></td><td>start in the raw-text or hex view (the default shows the span with the original’s line breaks and layout)</td></tr>
+      <tr><td><code>c=256</code></td><td>show 256 bytes of the text around each passage</td></tr>
+      <tr><td><code>v=text</code></td><td>start in the plain-text view (the default shows the passage with the original’s line breaks and layout)</td></tr>
       <tr><td><code>e=latin1</code></td><td>read the source before it as Windows-1252 (also <code>windows-1251</code>, <code>iso-8859-2</code>, and other single-byte encodings). Without it the page uses what the server or the file itself declares, else UTF-8.</td></tr>
     </table>
     <p>Shorthand for one source: <code>#https://host/file.txt@0-99,200-299</code>. It is rewritten to the full form on load.</p>
-    <p>Offsets are bytes of the file exactly as the server sends it. A span is never snapped to character boundaries, so it can start or end inside a multi-byte character, and the view says so.</p>
+    <p>Offsets are bytes of the file exactly as the server sends it. A span is never snapped to character boundaries, so it can start or end inside a multi-byte character, and the passage says so.</p>
   </details>
   <details id="sourceshelp">
     <summary>Where sources come from, and permanence</summary>
-    <p>A byte span only means something if the file never changes, so archiveo prefers addresses that do not change and marks each source as <b>Permanent</b> or <b>Can change</b>.</p>
+    <p>A link to a passage only means something if the document never changes, so archiveo prefers addresses that do not change and marks each source as <b>Permanent</b> or <b>Can change</b>.</p>
     <table>
       <tr><td>Internet Archive</td><td>files and full text; the archive keeps them</td></tr>
       <tr><td>Library of Congress</td><td>digitized books with machine-readable text</td></tr>
@@ -320,23 +327,23 @@ footer{margin-top:30px;color:var(--muted);font-size:13px}
   </details>
   <details id="embedhelp">
     <summary>Use it as a modal on your page</summary>
-    <p>Add the helper, open the modal, and get the chosen spans back as data. See <code>README.md</code> for the message protocol if you would rather use a bare iframe.</p>
+    <p>Add the helper, open the modal, and get the chosen passages back as data. See <code>README.md</code> for the message protocol if you would rather use a bare iframe.</p>
     <pre class="data" id="embedsnip"></pre>
   </details>
   <details id="gatewaysettings">
     <summary>Settings: Wayback backup gateway</summary>
-    <p class="muted">Back a span up to the Internet Archive’s Wayback Machine through a gateway you run (see <code>gateway/</code>). It hosts the text on a page for a moment, the Wayback Machine captures that page, and once the capture is available the page is deleted from the server. <b>The capture is public and permanent.</b> A gateway kept private on a VM is reached through an SSH tunnel: run <code>gateway/tunnel.sh</code> and use <code>http://localhost:8850</code>. The key stays in this browser and is sent only to your gateway.</p>
+    <p class="muted">Back a passage up to the Internet Archive’s Wayback Machine through a gateway you run (see <code>gateway/</code>). It hosts the text on a page for a moment, the Wayback Machine captures that page, and once the capture is available the page is deleted from the server. <b>The capture is public and permanent.</b> A gateway kept private on a VM is reached through an SSH tunnel: run <code>gateway/tunnel.sh</code> and use <code>http://localhost:8850</code>. The key stays in this browser and is sent only to your gateway.</p>
     <div class="bar"><input id="gwurl" type="text" placeholder="http://localhost:8850 (through the tunnel)" spellcheck="false" autocomplete="off" aria-label="Gateway address"><input id="gwkey" type="password" placeholder="key" autocomplete="off" aria-label="Gateway key"></div>
     <p><button id="gwsave" type="button">Save</button> <button id="gwtest" type="button">Test</button></p>
     <p id="gwmsg" class="muted"></p>
   </details>
   <details id="settings">
     <summary>Settings: CORS proxy</summary>
-    <p class="muted">A page can only read bytes from hosts that send CORS headers (archive.org and raw.githubusercontent.com do). For other hosts you can route requests through a proxy you trust. Use <code>{url}</code> where the encoded link goes. The proxy sees every link you load, so it is off by default and it is never read from the page URL.</p>
+    <p class="muted">A page can only read documents from hosts that send CORS headers (archive.org and raw.githubusercontent.com do). For other hosts you can route requests through a proxy you trust. Use <code>{url}</code> where the encoded link goes. The proxy sees every link you load, so it is off by default and it is never read from the page URL.</p>
     <div class="bar"><input id="proxy" type="text" placeholder="https://your-proxy.example/?url={url}" spellcheck="false" aria-label="CORS proxy template"><button id="saveproxy" type="button">Save</button></div>
     <p id="proxymsg" class="muted"></p>
   </details>
-  <footer>Fetches use <code>Range</code> requests with credentials omitted and no referrer. Nothing leaves your browser except the links you load.</footer>
+  <footer>Documents are fetched without credentials or a referrer. Nothing leaves your browser except the links you load.</footer>
 </template>
 
 <script>
@@ -347,15 +354,15 @@ footer{margin-top:30px;color:var(--muted);font-size:13px}
 const CAP = 1 << 20;        // largest span fetched without asking (1 MiB)
 const HARD = 256 << 20;     // largest span fetched even when asked
 const SKIP_CAP = 64 << 20;  // if a server ignores Range, most we read to reach an offset
-const HEX_MAX = 16384;      // bytes drawn as hex in a span view
-const HEX_PAGE = 4096;      // bytes per browse page in hex
 const PREVIEW = 600;        // bytes fetched for an index card
+const SNIP = 1200;          // bytes read to name a passage in the list and count its words
+const READ_PAGE = 16384;    // bytes of text on one page of the reader
 const MAXC = 4;             // parallel requests
 
 /* ---------- environment: standalone page or modal ---------- */
 const Q = new URLSearchParams(location.search);
 const EMBED = Q.get('embed') === '1' && window.parent !== window;
-const ACTION = (Q.get('action') || 'Use spans').slice(0, 30);
+const ACTION = (Q.get('action') || 'Use passages').slice(0, 30);
 const ROUTE_KEYS = ['u', 's', 'c', 'v', 'e', 'f', 'q', 'p', 'm'];
 const PROVIDER_IDS = ['ia', 'iafts', 'loc', 'wiki', 'gh'];
 let hostOrigin = null;
@@ -385,9 +392,31 @@ function h(tag, attrs, ...kids) {
   return e;
 }
 const n0 = n => Number(n).toLocaleString('en-US');
-const fmtB = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 1 : 0) + ' KiB' : (n / 1048576).toFixed(1) + ' MiB';
+const fmtSize = n => n < 1000 ? 'under 1 KB' : n < 1e6 ? Math.round(n / 1000) + ' KB' : (n / 1e6).toFixed(1) + ' MB';   // file sizes as a download shows them
 const safeDecode = s => { try { return decodeURIComponent(s); } catch { return s; } };
-const hex8 = n => n.toString(16).padStart(8, '0');
+/* people count words, not bytes: everything the page says about a passage goes through these */
+const wordSeg = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: 'word' }) : null;
+function wordCount(text) {
+  if (wordSeg) { let n = 0; for (const s of wordSeg.segment(text)) if (s.isWordLike) n++; return n; }
+  return text.split(/\s+/).filter(Boolean).length;                                    // regex-ok: whitespace, only without Intl.Segmenter
+}
+const words = (n, exact = true) => `${exact ? '' : 'about '}${n0(n)} ${n === 1 ? 'word' : 'words'}`;
+const oneLine = t => t.replace(/\s+/g, ' ').trim();                                   // regex-ok: whitespace layout, not language
+function quoteOf(text, head = 6, tail = 4) {      // a highlighted passage as a short quotation: its first and last words
+  const t = oneLine(text), w = t.split(' ');
+  if (w.length > head + tail + 1) return w.slice(0, head).join(' ') + ' … ' + w.slice(-tail).join(' ');
+  return t.length > 90 ? t.slice(0, 55) + ' … ' + t.slice(-25) : t;
+}
+function openingOf(text, n = 7) {                 // the first words of a passage, to name it in a list
+  const w = oneLine(text).split(' ');
+  const t = w.slice(0, n).join(' ');
+  return (t.length > 60 ? t.slice(0, 57) : t) + (w.length > n || t.length > 60 ? '…' : '');
+}
+const placeIn = (a, size) => {                    // where in the document, the way a reader would say it
+  if (!size || a == null) return '';
+  const p = Math.round(100 * a / size);
+  return p < 1 ? 'at the very start' : p > 98 ? 'at the very end' : `${p}% of the way through`;
+};
 const baseUrl = () => location.href.split('#')[0].split('?')[0];
 
 /* ---------- span grammar ---------- */
@@ -433,8 +462,14 @@ function spanFromHost(x) {                // untrusted data from a host page
 const encUrl = u => encodeURIComponent(u).replace(/%3A/gi, ':').replace(/%2F/gi, '/').replace(/%3F/gi, '?')
   .replace(/%3D/gi, '=').replace(/%40/gi, '@').replace(/%2C/gi, ',');
 
+// A link that opens just this text, with `ctx` bytes around it so it reads in place.
+function spanLink(src, sp, ctx = 0) {
+  const name = src.name && /^local:/.test(src.url) ? `&n=${encodeURIComponent(src.name)}` : '';   // regex-ok: our own scheme
+  return `${baseUrl()}#u=${encUrl(src.url)}${name}&s=${spanToken(sp)}${src.enc ? '&e=' + src.enc : ''}${ctx ? '&c=' + ctx : ''}`;
+}
+
 /* ---------- route <-> state ---------- */
-const newSource = url => ({ url, spans: [], enc: null, autoEnc: null, encWhy: '', encNote: '', encReady: false, error: null, needPicker: null, pickerKind: null, note: '', browse: { off: 0, page: 16384, sel: null } });
+const newSource = url => ({ url, spans: [], name: '', needFile: false, enc: null, autoEnc: null, encWhy: '', encNote: '', encReady: false, error: null, needPicker: null, pickerKind: null, note: '', browse: { off: 0, sel: null } });
 // How a source's bytes are read: an explicit e= in the link, else what the file declares or the bytes show, else UTF-8.
 const SINGLE_BYTE = ['windows-1250', 'windows-1251', 'windows-1253', 'windows-1254', 'windows-1255', 'windows-1256', 'windows-1257', 'windows-1258',
   'iso-8859-2', 'iso-8859-3', 'iso-8859-4', 'iso-8859-5', 'iso-8859-6', 'iso-8859-7', 'iso-8859-8', 'iso-8859-10', 'iso-8859-13', 'iso-8859-14', 'iso-8859-15', 'iso-8859-16', 'koi8-r', 'koi8-u', 'macintosh', 'ibm866'];
@@ -471,7 +506,7 @@ function parseRoute(raw) {
     for (const tok of list.split(',')) {
       if (!tok) continue;
       const sp = parseSpanToken(tok);
-      if (sp) target.push(sp); else st.errors.push(`Couldn’t read the span “${safeDecode(tok)}”.`);
+      if (sp) target.push(sp); else st.errors.push(`Couldn’t read the passage “${safeDecode(tok)}”.`);
     }
   };
   if (/^https?:\/\//i.test(raw)) {                       // shorthand: URL@spans
@@ -494,8 +529,9 @@ function parseRoute(raw) {
     if (k === 'u') { cur = newSource(safeDecode(rawV)); cur.spans.push(...pending); pending.length = 0; st.sources.push(cur); }
     else if (k === 's') addTokens(rawV, cur ? cur.spans : pending);
     else if (k === 'c') st.ctx = Math.min(65536, Math.max(0, parseInt(rawV, 10) || 0));
-    else if (k === 'v') st.view = rawV === 'hex' ? 'hex' : rawV === 'text' ? 'text' : 'doc';
+    else if (k === 'v') st.view = rawV === 'text' || rawV === 'hex' ? 'text' : 'doc';   // v=hex links from older versions open as plain text
     else if (k === 'e') { const v = encFromLabel(rawV); if (v) { if (cur) cur.enc = v; else st.enc = v; } }   // belongs to the u= before it
+    else if (k === 'n') { if (cur) cur.name = safeDecode(rawV).slice(0, 200); }      // a file's name, for a local: source
     else if (k === 'q') sq = safeDecode(rawV).slice(0, 300);
     else if (k === 'p') spv = PROVIDER_IDS.includes(rawV) ? rawV : 'ia';
     else if (k === 'm') sm = /^[\w.-]{1,40}$/.test(rawV) ? rawV : '';      // regex-ok: an option id
@@ -507,7 +543,7 @@ function parseRoute(raw) {
       }
     }
   }
-  if (pending.length) st.errors.push('Some s= spans came before any u= link, so they were ignored.');
+  if (pending.length) st.errors.push('Some passages came before any document in the link, so they were ignored.');
   if (sq.trim()) st.search = { q: sq.trim(), p: spv, m: sm };
   if (st.enc !== 'utf8') for (const s of st.sources) if (s.enc == null) s.enc = st.enc;       // an e= before any u= is a default for all
   return st;
@@ -522,6 +558,7 @@ function toHash(st) {
   const parts = [];
   for (const s of st.sources) {
     parts.push('u=' + encUrl(s.url));
+    if (s.name && /^local:/.test(s.url)) parts.push('n=' + encodeURIComponent(s.name));   // regex-ok: our own scheme
     for (const sp of s.spans) parts.push('s=' + spanToken(sp));
     if (s.enc) parts.push('e=' + s.enc);                                        // only an explicit choice goes in the link
   }
@@ -529,15 +566,29 @@ function toHash(st) {
   if (st.sources.length) {
     const f = focusToken(st); if (f) parts.push(f);
     if (st.ctx) parts.push('c=' + st.ctx);
-    if (st.view === 'hex' || st.view === 'text') parts.push('v=' + st.view);
+    if (st.view === 'text') parts.push('v=text');
   }
   return parts.join('&');
 }
 
 /* ---------- source links ---------- */
+// A file the visitor uploads lives only in this browser's memory. Its address is local:<sha-256 of its bytes>, so a link to it names the
+// exact bytes, and whoever opens the link uploads the same file to see the passage. Nothing is sent anywhere.
+const LOCAL = /^local:([0-9a-f]{64})$/;                                  // regex-ok: our own scheme
+const localFiles = new Map();                                             // id -> { name, bytes, type }
+const localNames = new Map();                                             // id -> file name (also learned from a link's n=)
+const MAX_UPLOAD = 100e6;
+const localId = url => { const m = LOCAL.exec(String(url)); return m ? m[1] : null; };
 const IA_HOSTS = new Set(['archive.org', 'www.archive.org']);
 function normalize(src) {
-  src.error = null; src.needPicker = null; src.pickerKind = null; src.note = '';
+  src.error = null; src.needPicker = null; src.pickerKind = null; src.note = ''; src.needFile = false;
+  const lm = LOCAL.exec(String(src.url).trim());
+  if (lm) {                                                              // a file from this browser, named by its content hash
+    src.url = 'local:' + lm[1];
+    if (src.name) localNames.set(lm[1], src.name);
+    src.needFile = !localFiles.has(lm[1]);
+    return;
+  }
   let u;
   try { u = new URL(String(src.url).trim()); } catch { src.error = 'That is not a valid link.'; return; }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') { src.error = 'Only http and https links can be loaded.'; return; }
@@ -561,6 +612,8 @@ function normalize(src) {
   src.url = u.href;
 }
 const srcName = url => {
+  const id = localId(url);
+  if (id) return localNames.get(id) || 'uploaded file';
   try {
     const u = new URL(url), p = u.pathname.split('/').filter(Boolean);
     const w = /^\/api\/rest_v1\/page\/html\/([^/]+)\/(\d+)$/.exec(u.pathname);                      // regex-ok: URL shape
@@ -568,7 +621,8 @@ const srcName = url => {
     return safeDecode(p[p.length - 1] || u.hostname);
   } catch { return url; }
 };
-function permanence(url) {                       // can a byte offset into this address be trusted to mean the same bytes tomorrow?
+function permanence(url) {                       // can a passage in this address be trusted to mean the same words tomorrow?
+  if (localId(url)) return { ok: true, text: 'your own file; anyone opening the link needs the same file' };
   let u; try { u = new URL(url); } catch { return null; }
   const host = u.hostname, path = u.pathname;
   if (host === 'raw.githubusercontent.com') {
@@ -586,10 +640,11 @@ async function pinGithub(src) {                  // swap a branch in a raw GitHu
   src.url = `https://raw.githubusercontent.com/${o}/${r}/${d.sha}/${rest.join('/')}`;
   commit();
 }
-const srcHost = url => { try { return new URL(url).host; } catch { return ''; } };
+const srcHost = url => { if (localId(url)) return 'this computer'; try { return new URL(url).host; } catch { return ''; } };
 const BADGES = [['TXT', /^(txt|md|csv|tsv|json|xml|html?|rtf|log|tex|srt|vtt)$/], ['PDF', /^pdf$/], ['IMG', /^(jpe?g|png|gif|webp|tiff?|jp2|bmp|svg)$/],
   ['AUD', /^(mp3|wav|flac|ogg|m4a|aac)$/], ['VID', /^(mp4|mkv|webm|mov|avi|m4v)$/], ['ARC', /^(zip|gz|tgz|tar|7z|rar|torrent|bz2|xz)$/]];
 function badgeFor(src) {
+  if (src.needFile) return 'FILE';
   if (src.needPicker) return 'DIR';
   if (src.error) return 'ERR';
   const ext = srcName(src.url).toLowerCase().split('.').pop();
@@ -617,6 +672,13 @@ function pump() {
 }
 const sizes = new Map(), sizeP = new Map(), types = new Map();
 function getSize(url) {
+  const id = localId(url);
+  if (id) {                                                              // no request: the bytes are right here
+    const f = localFiles.get(id);
+    sizes.set(url, f ? f.bytes.length : null);
+    if (f) types.set(url, f.type || '');
+    return Promise.resolve(f ? f.bytes.length : null);
+  }
   if (!sizeP.has(url)) {
     sizeP.set(url, (async () => {
       try {
@@ -647,7 +709,7 @@ async function readWindow(res, skip, want, hardCap) {
       }
       seen = end;
       if (got >= want) break;
-      if (seen > hardCap) throw new RangeError('Stopped after reading ' + fmtB(hardCap) + ' without reaching the span.');
+      if (seen > hardCap) throw new RangeError('Stopped after reading ' + fmtSize(hardCap) + ' without reaching the passage.');
     }
   } finally { try { reader.cancel(); } catch { /* already closed */ } }
   const out = new Uint8Array(got); let o = 0;
@@ -655,6 +717,12 @@ async function readWindow(res, skip, want, hardCap) {
   return out;
 }
 async function fetchBytes(url, a, b) {
+  const id = localId(url);
+  if (id) {
+    const f = localFiles.get(id);
+    if (!f) throw new Error('That file has not been uploaded in this browser yet.');
+    return { bytes: f.bytes.slice(a, b + 1), total: f.bytes.length, status: a >= f.bytes.length ? 416 : 206 };
+  }
   const res = await doFetch(url, { headers: { Range: `bytes=${a}-${b}` } });
   let total = null;
   const cr = res.headers.get('content-range');
@@ -662,7 +730,7 @@ async function fetchBytes(url, a, b) {
     const m = /^bytes\s+(?:(\d+)-(\d+)|\*)\/(\d+|\*)$/i.exec(cr.trim());
     if (m) {
       if (m[3] && m[3] !== '*') total = Number(m[3]);
-      if (m[1] !== undefined && Number(m[1]) !== a) throw new Error(`The server answered with bytes ${m[1]}-${m[2]} instead of ${a}-${b}.`);
+      if (m[1] !== undefined && Number(m[1]) !== a) throw new Error('The server sent a different part of the file than the one asked for, so the passage could not be placed.');
     }
   }
   if (res.status === 416) { try { res.body && res.body.cancel(); } catch { /* ignore */ } learnSize(url, total); return { bytes: new Uint8Array(0), total, status: 416 }; }
@@ -670,7 +738,7 @@ async function fetchBytes(url, a, b) {
   if (res.status === 200) {
     const cl = res.headers.get('content-length');
     if (cl && /^\d+$/.test(cl)) total = Number(cl);
-    if (b + 1 > SKIP_CAP) { try { res.body && res.body.cancel(); } catch { /* ignore */ } throw new RangeError(`This server ignores Range requests and sends the whole file, so reaching byte ${n0(b)} would mean downloading more than ${fmtB(SKIP_CAP)}.`); }
+    if (b + 1 > SKIP_CAP) { try { res.body && res.body.cancel(); } catch { /* ignore */ } throw new RangeError(`This server cannot send just a piece of the file, so reaching that spot would mean downloading more than ${fmtSize(SKIP_CAP)}.`); }
     const bytes = await readWindow(res, a, b - a + 1, SKIP_CAP); learnSize(url, total);
     return { bytes, total, status: 200, ignoredRange: true, read: Math.min(b + 1, total ?? b + 1) };
   }
@@ -696,7 +764,7 @@ async function resolveRange(src, sp) {
   if (sp.kind === 'range') return { a: sp.start, b: sp.end };
   const size = await getSize(src.url);
   if (sp.kind === 'open') return size == null ? { a: sp.start, b: sp.start + CAP - 1, unknownEnd: true } : { a: sp.start, b: Math.max(sp.start, size - 1) };
-  return size == null ? { error: 'Couldn’t learn the file’s size (the server may not allow a HEAD request), so a last-bytes span can’t be placed.' } : { a: Math.max(0, size - sp.len), b: size - 1 };
+  return size == null ? { error: 'Couldn’t learn how long the document is (the server may not say), so a passage counted from its end can’t be placed.' } : { a: Math.max(0, size - sp.len), b: size - 1 };
 }
 function knownRange(src, sp) {
   if (sp.kind === 'range') return { a: sp.start, b: sp.end };
@@ -705,7 +773,6 @@ function knownRange(src, sp) {
   if (sp.kind === 'open') return sp.start < size ? { a: sp.start, b: size - 1 } : null;
   return { a: Math.max(0, size - sp.len), b: size - 1 };
 }
-const rangeText = sp => sp.kind === 'range' ? `bytes ${n0(sp.start)}–${n0(sp.end)}` : sp.kind === 'open' ? `bytes ${n0(sp.start)} to the end` : `last ${fmtB(sp.len)}`;
 
 /* ---------- decoding ---------- */
 function decodeText(bytes, enc) {
@@ -752,12 +819,12 @@ function lower(offs, x) {
 }
 function edgeNotes(bytes) {
   const n = bytes.length, out = [];
-  if (n && (bytes[0] & 0xC0) === 0x80) out.push('starts in the middle of a multi-byte character');
+  if (n && (bytes[0] & 0xC0) === 0x80) out.push('starts partway through a character, so its first letter may look wrong');
   for (let k = 1; k <= 3 && k <= n; k++) {
     const b = bytes[n - k];
     if ((b & 0xC0) === 0x80) continue;
     const need = b >= 0xF0 ? 4 : b >= 0xE0 ? 3 : b >= 0xC0 ? 2 : 1;
-    if (need > k) out.push('ends in the middle of a multi-byte character');
+    if (need > k) out.push('ends partway through a character, so its last letter may look wrong');
     break;
   }
   return out;
@@ -768,7 +835,6 @@ function looksBinary(bytes) {
   for (let i = 0; i < n; i++) { const b = bytes[i]; if (b === 0 || (b < 9) || (b > 13 && b < 32)) bad++; }
   return bad / n > 0.08;
 }
-const hexPreview = (bytes, n = 32) => Array.from(bytes.subarray(0, n), b => b.toString(16).padStart(2, '0')).join(' ') + (bytes.length > n ? ' …' : '');
 /* ---------- which encoding is this file in? ---------- */
 function invalidInside(bytes) {                  // bytes that are not UTF-8, ignoring a character cut off at either edge
   let s = 0, e = bytes.length;
@@ -789,12 +855,12 @@ async function detectEnc(src) {                 // what the file says about itse
   await new Promise(res => e.state === 'loading' ? e.waiters.add(res) : res());
   const head = e.state === 'done' ? e.value.bytes : EMPTY;
   if (head.length) {
-    if (head[0] === 0xEF && head[1] === 0xBB && head[2] === 0xBF) { src.autoEnc = 'utf8'; src.encWhy = 'byte-order mark'; return; }
+    if (head[0] === 0xEF && head[1] === 0xBB && head[2] === 0xBF) { src.autoEnc = 'utf8'; src.encWhy = 'marked in the file'; return; }
     const decl = /(?:charset|encoding)\s*[=:]\s*["']?([A-Za-z0-9_.:-]+)/i.exec(new TextDecoder('windows-1252').decode(head));   // regex-ok: an encoding declaration in a file header
     const declared = decl && encFromLabel(decl[1]);
     if (declared) { src.autoEnc = declared; src.encWhy = 'declared in the file'; return; }
     if (decl && !/^utf-?8$/i.test(decl[1])) src.encNote = `The file declares ${decl[1]}, which this page cannot decode, so it is guessing.`;
-    if (invalidInside(head) > 0 && !looksBinary(head)) { src.autoEnc = server && server !== 'utf8' ? server : 'latin1'; src.encWhy = 'guessed: the bytes are not valid UTF-8'; return; }
+    if (invalidInside(head) > 0 && !looksBinary(head)) { src.autoEnc = server && server !== 'utf8' ? server : 'latin1'; src.encWhy = 'guessed: it is not valid UTF-8'; return; }
   }
   if (server && server !== 'utf8') { src.autoEnc = server; src.encWhy = 'declared by the server'; }
 }
@@ -805,39 +871,8 @@ function ensureEnc(src) {                        // resolves once src's encoding
 }
 function adoptEnc(src, bytes) {                  // a window of bytes that is not UTF-8 means a legacy encoding; true if that changed it
   if (src.enc || src.autoEnc || !bytes.length || looksBinary(bytes) || invalidInside(bytes) === 0) return false;
-  src.autoEnc = 'latin1'; src.encWhy = 'guessed: the bytes are not valid UTF-8';
+  src.autoEnc = 'latin1'; src.encWhy = 'guessed: it is not valid UTF-8';
   return true;
-}
-
-/* ---------- hex dump ---------- */
-function hexDump(bytes, base, classify, { perByte = false, max = bytes.length, pick = false } = {}) {
-  const n = Math.min(bytes.length, max);
-  const root = h('div', { class: 'hex' + (pick ? ' pick' : '') });
-  for (let r = Math.floor(base / 16) * 16; r < base + n; r += 16) {
-    const row = h('div', { class: 'hrow' });
-    const hb = h('span', { class: 'hbytes' }), ha = h('span', { class: 'hascii' });
-    let runH = null, runA = null, curCls = null;
-    const flush = () => { if (runH != null) { hb.append(h('span', { class: curCls, text: runH })); ha.append(h('span', { class: curCls, text: runA })); } runH = runA = null; };
-    for (let k = 0; k < 16; k++) {
-      const abs = r + k, idx = abs - base;
-      let hx, as, cls = '';
-      if (idx < 0 || idx >= n) { hx = '   '; as = ' '; cls = 'ctx'; }
-      else { const v = bytes[idx]; hx = v.toString(16).padStart(2, '0') + ' '; as = v >= 0x20 && v < 0x7F ? String.fromCharCode(v) : '·'; cls = classify(idx, abs); }
-      if (k === 7) hx += ' ';
-      if (perByte) {
-        const ok = idx >= 0 && idx < n;
-        hb.append(h('i', { class: cls, 'data-o': ok ? abs : null, text: hx }));
-        ha.append(h('i', { class: cls, 'data-o': ok ? abs : null, text: as }));
-      } else {
-        if (cls !== curCls) { flush(); curCls = cls; runH = ''; runA = ''; }
-        runH += hx; runA += as;
-      }
-    }
-    flush();
-    row.append(h('span', { class: 'haddr', text: hex8(r) }), hb, ha);
-    root.append(row);
-  }
-  return root;
 }
 
 /* ---------- the span as the original wrote it ---------- */
@@ -903,7 +938,7 @@ function htmlToDom(html) {                       // rebuild only allow-listed el
 function renderDoc(src, parts, enc, { max = 30000, truncated = false } = {}) {
   const midText = decodeText(parts.mid, enc).text;
   const kind = docKind(src, parts.mid, midText);
-  if (kind === 'binary') return { el: h('div', { class: 'doc mono', text: hexPreview(parts.mid, 48) }), kind, clipped: false };
+  if (kind === 'binary') return { el: h('div', { class: 'doc', text: 'This is not text (it looks like a picture, a PDF or another kind of file), so there are no words to show.' }), kind, clipped: false };
   if (kind === 'html') {
     const el = h('div', { class: 'doc html', dir: 'auto' });
     el.append(htmlToDom(truncated ? midText.replace(/�+$/, '') : midText));
@@ -983,15 +1018,23 @@ function removeSource(si) {
 }
 
 function copy(text, btn) {
-  const done = () => { if (!btn) return; const o = btn.dataset.o || btn.textContent; btn.dataset.o = o; btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = o; }, 1200); };
-  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => legacyCopy(text, done));
-  else legacyCopy(text, done);
+  const flash = msg => { if (!btn) return; const o = btn.dataset.o || btn.textContent; btn.dataset.o = o; btn.textContent = msg; setTimeout(() => { btn.textContent = o; }, msg === 'Copied' ? 1200 : 3200); };
+  const done = () => flash('Copied');
+  const failed = () => {                                         // never say "Copied" when it was not: leave the text selected to copy by hand
+    const f = btn && btn.parentElement && btn.parentElement.querySelector('input.linkfield');
+    if (f) { f.focus(); f.select(); }
+    flash('Press Ctrl or ⌘ + C');
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => legacyCopy(text, done, failed));
+  else legacyCopy(text, done, failed);
 }
-function legacyCopy(text, done) {
+function legacyCopy(text, done, failed) {
   const t = h('textarea', { value: text, style: 'position:fixed;opacity:0' });
   document.body.append(t); t.select();
-  try { document.execCommand('copy'); done(); } catch { /* nothing else to try */ }
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { /* not allowed here */ }
   t.remove();
+  if (ok) done(); else if (failed) failed();
 }
 function saveBytes(bytes, name) {
   const url = URL.createObjectURL(new Blob([bytes]));
@@ -1013,6 +1056,38 @@ function errBox(err, onRetry) {
     x.cors && h('button', { type: 'button', text: 'Proxy settings', onclick: () => { openSettings = true; openIndex(); } }));
 }
 
+/* ---------- what a passage says ---------- */
+// A list of byte ranges is no use to a reader, so each passage is named by its own first words and sized in words.
+// The text is read once, a few hundred words at most, and cached; the list repaints when it arrives.
+const said = new Map();                                        // 'url\0a-b' -> { text, words, exact } | 'reading' | 'none'
+function passage(src, sp) {
+  if (src.error || src.needPicker || src.needFile) return null;
+  const r = knownRange(src, sp); if (!r) return null;
+  const key = `${src.url}\u0000${r.a}-${r.b}`, got = said.get(key);
+  if (got) return typeof got === 'object' ? got : null;
+  said.set(key, 'reading');
+  (async () => {
+    await ensureEnc(src);
+    const end = Math.min(r.b, r.a + SNIP - 1), e = dataFor(src.url, r.a, end);
+    await new Promise(res => e.state === 'loading' ? e.waiters.add(res) : res());
+    if (e.state !== 'done' || !e.value.bytes.length) { said.set(key, 'none'); return; }
+    const bytes = e.value.bytes;
+    adoptEnc(src, bytes);
+    const d = renderDoc(src, { before: EMPTY, mid: bytes, after: EMPTY }, encOf(src), { max: SNIP, truncated: end < r.b });
+    if (d.kind === 'binary') { said.set(key, 'none'); return; }
+    const text = oneLine(d.el.textContent.replace(/�+$/, '')), n = wordCount(text);        // regex-ok: a cut-off character at the edge
+    const whole = end >= r.b;
+    said.set(key, { text, words: whole ? n : Math.round(n * (r.b - r.a + 1) / bytes.length), exact: whole });
+  })().catch(() => said.set(key, 'none')).then(() => { if (S.focus) { renderNav(); renderCrumbs(); } });
+  return null;
+}
+function passageName(src, sp, i) {
+  if (sp.label) return sp.label;
+  const p = passage(src, sp);
+  return p && p.text ? '“' + openingOf(p.text) + '”' : `Passage ${i + 1}`;
+}
+function passageSize(src, sp) { const p = passage(src, sp); return p && p.words ? words(p.words, p.exact) : ''; }
+
 /* ---------- controls ---------- */
 function seg(options, value, onChange, label) {
   const box = h('div', { class: 'seg', role: 'group', 'aria-label': label });
@@ -1026,13 +1101,13 @@ function select(options, value, onChange) {
 }
 const ENC_NAMES = { utf8: 'UTF-8', latin1: 'Latin-1 (Windows-1252)', 'windows-1250': 'Windows-1250', 'windows-1251': 'Windows-1251 (Cyrillic)', 'iso-8859-2': 'ISO-8859-2', 'iso-8859-15': 'ISO-8859-15', 'koi8-r': 'KOI8-R' };
 function encOptions(cur) { const ids = Object.keys(ENC_NAMES); if (!ids.includes(cur)) ids.push(cur); return ids.map(id => [id, ENC_NAMES[id] || id]); }
-function controls(src, withCtx) {
-  const ctxOpts = [[0, 'none'], [64, '64 B'], [256, '256 B'], [1024, '1 KiB'], [4096, '4 KiB']];
-  if (!ctxOpts.some(o => o[0] === S.ctx)) ctxOpts.push([S.ctx, fmtB(S.ctx)]);
+function controls(src, withCtx, reader) {
+  const ctxOpts = [[0, 'None'], [64, 'A few words'], [256, 'A few lines'], [1024, 'A paragraph'], [4096, 'A page']];
+  if (!ctxOpts.some(o => o[0] === S.ctx)) ctxOpts.push([S.ctx, 'Custom']);
   return h('div', { class: 'controls' },
-    seg([['doc', 'Original'], ['text', 'Raw text'], ['hex', 'Hex']], S.view, v => { S.view = v; commit(); }, 'View'),
-    h('label', {}, 'Decode', select(encOptions(encOf(src)), encOf(src), v => { src.enc = v; commit(); }), !src.enc && src.encWhy && h('span', { class: 'muted', text: `(${src.encWhy})` })),
-    withCtx && h('label', {}, 'Context', select(ctxOpts, S.ctx, v => { S.ctx = +v; commit(); })));
+    !reader && seg([['doc', 'As in the source'], ['text', 'Plain text']], S.view, v => { S.view = v; commit(); }, 'View'),
+    h('label', {}, 'Letters look wrong? Read as', select(encOptions(encOf(src)), encOf(src), v => { src.enc = v; commit(); }), !src.enc && src.encWhy && h('span', { class: 'muted', text: `(${src.encWhy})` })),
+    withCtx && h('label', {}, 'Show around it', select(ctxOpts, S.ctx, v => { S.ctx = +v; commit(); })));
 }
 
 /* ---------- left panel ---------- */
@@ -1050,38 +1125,37 @@ const sect = (t, c) => h('div', { class: 'sect' }, h('span', { text: t }), h('sp
 function renderNav() {
   const head = $('#navhead'), list = $('#navlist');
   const inSource = !!S.focus;
-  $('#addsrc').hidden = inSource; $('#addspan').hidden = !inSource;
+  $('#addsrc').hidden = inSource;
   head.replaceChildren(); list.replaceChildren();
   if (!inSource) {
-    head.append(sect('Sources', S.sources.length ? String(S.sources.length) : ''));
+    head.append(sect('Documents', S.sources.length ? String(S.sources.length) : ''));
     head.style.padding = '0';
     S.sources.forEach((src, si) => {
       const b = badgeFor(src);
       list.append(row({
         badge: b, cls: b === 'DIR' ? 'dir' : b === 'ERR' ? 'err' : '', title: src.needPicker ? src.needPicker : srcName(src.url),
-        meta: src.needPicker ? (src.pickerKind === 'gh' ? 'GitHub repository · pick a file' : 'archive.org item · pick a file') : srcHost(src.url),
-        count: src.spans.length ? `${n0(src.spans.length)} ${src.spans.length === 1 ? 'span' : 'spans'}` : '',
+        meta: src.needFile ? 'upload the file to open it' : src.needPicker ? (src.pickerKind === 'gh' ? 'GitHub repository · pick a file' : 'archive.org item · pick a file') : srcHost(src.url),
+        count: src.spans.length ? `${n0(src.spans.length)} ${src.spans.length === 1 ? 'passage' : 'passages'}` : '',
         onOpen: () => openSource(si), onRemove: () => removeSource(si), removeLabel: `Remove ${srcName(src.url)}`,
       }));
     });
-    if (!S.sources.length) list.append(h('p', { class: 'empty', text: 'Nothing here yet. Paste a link above.' }));
+    if (!S.sources.length) list.append(h('p', { class: 'empty', text: 'Nothing here yet. Type a link above, or upload a file.' }));
     return;
   }
   head.style.padding = '';
   const src = S.sources[S.focus.si], cur = partOf(src, S.focus.part);
-  const nmeta = h('span', { class: 'nmeta', text: srcHost(src.url) }), perm = !src.error && !src.needPicker && permanence(src.url);
+  const nmeta = h('span', { class: 'nmeta', text: srcHost(src.url) }), perm = !src.error && !src.needPicker && !src.needFile && permanence(src.url);
   head.append(h('button', { type: 'button', class: 'back', text: '← Index', onclick: openIndex }),
     h('div', { class: 'ntitle' }, h('strong', { text: src.needPicker || srcName(src.url) }), nmeta,
       perm && h('span', { class: 'nmeta' + (perm.ok ? '' : ' warn'), text: (perm.ok ? 'Permanent: ' : 'Can change: ') + perm.text })));
-  if (!src.error && !src.needPicker) getSize(src.url).then(n => { if (nmeta.isConnected) nmeta.textContent = srcHost(src.url) + (n != null ? ' · ' + n0(n) + ' B' : ''); });
-  list.append(sect('Parts', src.spans.length ? String(src.spans.length) : ''));
-  if (src.error || src.needPicker) { list.append(h('p', { class: 'empty', text: src.error || 'Pick a file in the main panel.' })); return; }
+  if (!src.error && !src.needPicker && !src.needFile) getSize(src.url).then(n => { if (nmeta.isConnected) nmeta.textContent = srcHost(src.url) + (n != null ? ' · ' + fmtSize(n) : ''); });
+  list.append(sect('Passages', src.spans.length ? String(src.spans.length) : ''));
+  if (src.error || src.needPicker || src.needFile) { list.append(h('p', { class: 'empty', text: src.error || (src.needFile ? 'Upload the file in the main panel.' : 'Pick a file in the main panel.') })); return; }
   src.spans.forEach((sp, i) => list.append(row({
-    badge: '#' + (i + 1), title: sp.label || rangeText(sp),
-    meta: sp.label ? rangeText(sp) : (sp.kind === 'range' ? fmtB(sp.end - sp.start + 1) : ''),
-    active: cur === i, onOpen: () => openPart(i), onRemove: () => removeSpan(src, i), removeLabel: `Remove span ${i + 1}`,
+    badge: '#' + (i + 1), title: passageName(src, sp, i), meta: passageSize(src, sp),
+    active: cur === i, onOpen: () => openPart(i), onRemove: () => removeSpan(src, i), removeLabel: `Remove passage ${i + 1}`,
   })));
-  list.append(row({ badge: 'ALL', title: 'Browse and find', meta: 'search the file, or select text', active: cur === 'b', onOpen: () => openPart('b') }));
+  list.append(row({ badge: 'READ', title: 'Read and highlight', meta: 'highlight words to get a link', active: cur === 'b', onOpen: () => openPart('b') }));
 }
 
 function renderCrumbs() {
@@ -1089,8 +1163,8 @@ function renderCrumbs() {
   if (!S.focus) return;
   const src = S.sources[S.focus.si], p = partOf(src, S.focus.part);
   c.append(h('span', { text: '/' }), h('span', { class: p === null ? 'cur' : '', text: src.needPicker || srcName(src.url) }));
-  if (!src.error && !src.needPicker) c.append(h('span', { text: '/' }),
-    h('span', { class: 'cur', text: p === 'b' ? 'browse' : `#${p + 1}${src.spans[p].label ? ' ' + src.spans[p].label : ''}` }));
+  if (!src.error && !src.needPicker && !src.needFile) c.append(h('span', { text: '/' }),
+    h('span', { class: 'cur', text: p === 'b' ? 'Read' : `Passage ${p + 1}${src.spans[p].label ? ': ' + src.spans[p].label : ''}` }));
 }
 function syncChrome() {
   const total = S.sources.reduce((n, s) => n + s.spans.length, 0);
@@ -1154,7 +1228,7 @@ const PROVIDERS = {
   },
 };
 PROVIDERS.wiki = {
-  name: 'Wikimedia', hint: 'Texts on Wikisource and its sister projects. A page opens as a pinned revision, which has a permanent address, so offsets keep meaning the same bytes.',
+  name: 'Wikimedia', hint: 'Texts on Wikisource and its sister projects. A page opens as a pinned revision, which has a permanent address, so a highlighted passage keeps meaning the same words.',
   options: [['en.wikisource.org', 'Wikisource (English)'], ['la.wikisource.org', 'Wikisource (Latin)'], ['fr.wikisource.org', 'Wikisource (French)'], ['de.wikisource.org', 'Wikisource (German)'],
     ['it.wikisource.org', 'Wikisource (Italian)'], ['es.wikisource.org', 'Wikisource (Spanish)'], ['en.wikipedia.org', 'Wikipedia (English)'], ['en.wikibooks.org', 'Wikibooks (English)'], ['en.wikiquote.org', 'Wikiquote (English)']],
   defaultOption: 'en.wikisource.org',
@@ -1169,7 +1243,7 @@ PROVIDERS.wiki = {
   },
 };
 PROVIDERS.gh = {
-  name: 'Git archives', hint: 'Books kept in git: Project Gutenberg (GITenberg) and Standard Ebooks. A file opens pinned to a commit, so it can never change under your spans.',
+  name: 'Git archives', hint: 'Books kept in git: Project Gutenberg (GITenberg) and Standard Ebooks. A file opens pinned to a commit, so it can never change under your passages.',
   options: [['GITenberg', 'Project Gutenberg (GITenberg)'], ['standardebooks', 'Standard Ebooks']], defaultOption: 'GITenberg',
   async search(q, { page, opt }) {
     const p = new URLSearchParams({ q: `${q} org:${opt}`, per_page: String(PAGE), page: String(page) });
@@ -1319,12 +1393,45 @@ async function runBackup(doc, box) {
   }
 }
 
+/* ---------- add a file from this computer ---------- */
+const dropCache = url => { for (const k of [...cache.keys()]) if (k.startsWith(url + '\u0000')) cache.delete(k); };
+const uploadButton = (label = 'Upload a file') => h('button', { type: 'button', text: label, onclick: () => $('#filein').click() });
+async function addFiles(files) {
+  const list = [...files].slice(0, 20);                                   // copied first: the input is cleared right after
+  const waiting = S.focus && S.sources[S.focus.si] && S.sources[S.focus.si].needFile ? localId(S.sources[S.focus.si].url) : null;
+  const seen = [], tooBig = [];
+  let last = -1;
+  for (const f of list) {
+    if (f.size > MAX_UPLOAD) { tooBig.push(f.name); continue; }
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    const id = await sha256Hex(bytes), url = 'local:' + id;
+    localFiles.set(id, { name: f.name, bytes, type: f.type || '' }); localNames.set(id, f.name); dropCache(url);
+    seen.push(id);
+    let at = S.sources.findIndex(x => x.url === url);
+    if (at < 0) {
+      if (S.sources.length >= 50) continue;
+      const s = newSource(url); s.name = f.name; normalize(s); S.sources.push(s); at = S.sources.length - 1;
+    } else { S.sources[at].name = f.name; normalize(S.sources[at]); }
+    last = at;
+  }
+  messages = tooBig.length ? [`${tooBig.join(', ')} is over ${fmtSize(MAX_UPLOAD)}, which is more than this page can hold.`] : [];
+  if (waiting && !seen.includes(waiting)) messages.push('That is not the file the link names, so the passage cannot be shown. Its content hash is different.');
+  if (last >= 0) go({ si: last, part: null }); else commit();
+}
+function needFileUI(src) {
+  const id = localId(src.url), name = localNames.get(id);
+  return h('div', { class: 'needfile' },
+    h('div', { class: 'shead' }, h('h2', { text: name ? `Upload “${name}” to open this link` : 'Upload the file to open this link' }),
+      h('p', { text: 'This link points at words in a file that was on someone’s computer, so it opens once you have the same file. The file is read here in your browser and never sent anywhere.' })),
+    h('div', { class: 'updrop' }, uploadButton('Choose the file'), h('span', { class: 'muted', text: 'or drop it anywhere on this page' })));
+}
+
 /* ---------- stage: index ---------- */
 const EXAMPLES = [
-  { title: 'Two labeled spans from a Project Gutenberg text on archive.org', hint: 'The file says in its own header that it is ISO-8859-1, and the page reads it that way.',
+  { title: 'Two labeled passages from a Project Gutenberg text on archive.org', hint: 'The file says in its own header that it is ISO-8859-1, and the page reads it that way.',
     hash: 'u=https://archive.org/download/bucolica19917gut/19917-8.txt&s=800-1099:First%20eclogue&s=52952-53040:Colophon' },
-  { title: 'The same file in hex: the last 120 bytes, the first 64, and some context', hint: 'c=64 adds 64 bytes either side. v=hex shows a hex dump.',
-    hash: 'u=https://archive.org/download/bucolica19917gut/19917-8.txt&s=-120:The%20end&s=0-63:Header&c=64&v=hex' },
+  { title: 'The same text, each passage with some of the words around it', hint: 'Context shows the surrounding text, so a passage reads in place.',
+    hash: 'u=https://archive.org/download/bucolica19917gut/19917-8.txt&s=0-63:Header&s=800-1099:First%20eclogue&c=256' },
   { title: 'An archive.org item page, to pick a file from', hint: 'Details links open a file picker.', hash: 'u=https://archive.org/details/bucolica19917gut' },
 ];
 const io = 'IntersectionObserver' in window
@@ -1334,8 +1441,8 @@ const io = 'IntersectionObserver' in window
 function previewCard(src, si, sp, i) {
   const card = h('button', { type: 'button', class: 'quote', onclick: () => openSource(si, i) });
   const q = h('p', { class: 'qtext dim', text: 'Loading…' });
-  card.append(q, h('span', { class: 'who', text: sp.label || rangeText(sp) }),
-    h('span', { class: 'cite', text: `${srcName(src.url)} · ${srcHost(src.url)} · ${rangeText(sp)}` }));
+  card.append(q, sp.label && h('span', { class: 'who', text: sp.label }),
+    h('span', { class: 'cite', text: `${srcName(src.url)} · ${srcHost(src.url)}` }));
   card._load = async () => {
     const r = await resolveRange(src, sp);
     await ensureEnc(src);
@@ -1346,7 +1453,7 @@ function previewCard(src, si, sp, i) {
       if (!card.isConnected) return;
       if (e.state === 'loading') { e.waiters.add(fill); return; }
       if (e.state === 'error') { q.textContent = explain(e.error).cors ? 'Couldn’t fetch this link. Open the source for details.' : explain(e.error).msg; return; }
-      if (!e.value.bytes.length) { q.textContent = 'This span is past the end of the file.'; return; }
+      if (!e.value.bytes.length) { q.textContent = 'This passage is past the end of the document.'; return; }
       adoptEnc(src, e.value.bytes);
       const d = renderDoc(src, { before: EMPTY, mid: e.value.bytes, after: EMPTY }, encOf(src), { max: 1500, truncated: end < r.b });
       d.el.classList.add('clip'); q.replaceWith(d.el);
@@ -1403,27 +1510,38 @@ function docs() {
   return f;
 }
 
+function addBox() {                              // the one way in: type a link, or upload a file
+  const inp = h('input', { type: 'text', inputmode: 'url', placeholder: 'Type or paste a link to a document', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Link to a document' });
+  const form = h('form', { class: 'addform' }, inp, h('button', { type: 'submit', class: 'primary', text: 'Open' }));
+  form.addEventListener('submit', ev => { ev.preventDefault(); addFromInput(inp.value); });
+  return h('div', { class: 'addbox' }, form, h('div', { class: 'or', text: 'or' }),
+    h('div', { class: 'updrop' }, uploadButton(), h('span', { class: 'muted', text: 'or drop a file anywhere on this page. It stays in this browser.' })));
+}
+
 function stageIndex(inner) {
   if (S.search) { searchView(inner); inner.append(docs()); return; }
-  const items = S.sources.flatMap((src, si) => (src.error || src.needPicker) ? [] : src.spans.map((sp, i) => ({ src, si, sp, i })));
+  const items = S.sources.flatMap((src, si) => (src.error || src.needPicker || src.needFile) ? [] : src.spans.map((sp, i) => ({ src, si, sp, i })));
   const hero = h('section', { class: 'hero' });
   if (!S.sources.length) {
-    hero.append(h('p', { class: 'eyebrow', text: 'archiveo' }), h('h1', { text: 'Cite exact bytes.' }),
-      h('p', { class: 'lede', text: 'Point it at any link, such as an archive.org file or a GitHub raw file, and name the byte ranges you mean. The ranges live in the URL, so a link to this page is a citation anyone can open.' }),
+    hero.append(h('p', { class: 'eyebrow', text: 'archiveo' }), h('h1', { text: 'Link to the exact words.' }),
+      h('p', { class: 'lede', text: 'Add a document by typing its address or uploading a file. Highlight the words you want, and copy a link that opens right on them.' }),
+      addBox(),
+      h('p', { class: 'hint', text: 'Looking for a source? Type words instead of a link to search the archives.' }),
       h('div', { class: 'subhead', text: 'Try one' }),
       ...EXAMPLES.map(x => h('a', { class: 'quote', href: '#' + x.hash }, h('p', { class: 'qtext', text: x.title }), h('span', { class: 'cite', text: x.hint }))));
   } else if (!items.length) {
-    hero.append(h('p', { class: 'eyebrow', text: 'Index' }), h('h1', { text: S.sources.length === 1 ? 'One source, no spans yet.' : `${S.sources.length} sources, no spans yet.` }),
-      h('p', { class: 'lede', text: 'Open a source from the list, then add a span by typing a range or by browsing the file and selecting text.' }));
+    hero.append(h('p', { class: 'eyebrow', text: 'Index' }), h('h1', { text: S.sources.length === 1 ? 'One document, nothing highlighted yet.' : `${S.sources.length} documents, nothing highlighted yet.` }),
+      h('p', { class: 'lede', text: 'Open a document from the list and highlight the words you want a link to, or add another document.' }), addBox());
   } else {
     hero.append(h('p', { class: 'eyebrow', text: 'Index' }), h('h1', { text: 'Cited passages' }),
-      h('p', { class: 'lede', text: `${n0(items.length)} ${items.length === 1 ? 'span' : 'spans'} across ${n0(S.sources.length)} ${S.sources.length === 1 ? 'source' : 'sources'}. Open one to see its exact bytes.` }),
+      h('p', { class: 'lede', text: `${n0(items.length)} ${items.length === 1 ? 'passage' : 'passages'} from ${n0(S.sources.length)} ${S.sources.length === 1 ? 'document' : 'documents'}. Open one to read it in place.` }),
+      addBox(),
       ...items.map(x => previewCard(x.src, x.si, x.sp, x.i)));
   }
   inner.append(hero, docs());
 }
 
-/* ---------- stage: one span ---------- */
+/* ---------- stage: one passage ---------- */
 function spanView(src, sp, i, si) {
   const wrap = h('section', { class: 'spanview' });
   const qbody = h('div', { class: 'qbody' }, h('p', { class: 'qtext dim', text: 'Loading…' }));
@@ -1432,22 +1550,22 @@ function spanView(src, sp, i, si) {
   who.addEventListener('change', () => { sp.label = who.value.trim(); syncUrl(); renderNav(); renderCrumbs(); });
   const cite = h('div', { class: 'cite' });
   const bCopy = h('button', { type: 'button', text: 'Copy text', disabled: true });
-  const bLink = h('button', { type: 'button', text: 'Copy span link' });
-  const bSave = h('button', { type: 'button', text: 'Save bytes', disabled: true });
-  const bSee = h('button', { type: 'button', text: 'Browse around it' });
-  const bDel = h('button', { type: 'button', class: 'ghost', text: 'Remove span' });
-  const bBackup = h('button', { type: 'button', text: 'Back up to Wayback', title: 'Have the Wayback Machine keep this span, through your gateway', disabled: true });
+  const bLink = h('button', { type: 'button', class: 'primary', text: 'Copy link' });
+  const bSave = h('button', { type: 'button', text: 'Save text', disabled: true });
+  const bSee = h('button', { type: 'button', text: 'Read around it' });
+  const bDel = h('button', { type: 'button', class: 'ghost', text: 'Remove passage' });
+  const bBackup = h('button', { type: 'button', text: 'Back up to Wayback', title: 'Have the Wayback Machine keep this passage, through your gateway', disabled: true });
   const backupBox = h('div', { class: 'backup', hidden: true, 'aria-live': 'polite' });
   const bytes = h('div', { class: 'bytes' });
-  const lab = h('span', { class: 'lab', text: 'Bytes' });
-  wrap.append(h('div', { class: 'quote' }, qbody, who, cite), h('div', { class: 'actions' }, bCopy, bLink, bSave, bBackup, bSee, bDel), backupBox,
+  const lab = h('span', { class: 'lab', text: 'Passage' });
+  wrap.append(h('div', { class: 'quote' }, qbody, who, cite), h('div', { class: 'actions' }, bLink, bCopy, bSave, bBackup, bSee, bDel), backupBox,
     h('div', { class: 'bytehead' }, lab, controls(src, true)), bytes);
 
   const encAtBuild = encOf(src);
   let range = null, mid = null, midText = '';
   bCopy.onclick = () => copy(midText, bCopy);
-  bLink.onclick = () => copy(`${baseUrl()}#u=${encUrl(src.url)}&s=${spanToken(sp)}${src.enc ? '&e=' + src.enc : ''}`, bLink);
-  bSave.onclick = () => mid && saveBytes(mid, `${srcName(src.url)}.${range.a}-${range.b}.bin`);
+  bLink.onclick = () => copy(spanLink(src, sp), bLink);
+  bSave.onclick = () => midText && saveBytes(new TextEncoder().encode(midText), `${srcName(src.url)} passage.txt`);
   bSee.onclick = () => { const r = range || knownRange(src, sp); src.browse.off = Math.max(0, (r ? r.a : sp.start || 0) - 256); src.browse.sel = null; openPart('b'); };
   bDel.onclick = () => removeSpan(src, i);
   bBackup.onclick = async () => {
@@ -1456,27 +1574,25 @@ function spanView(src, sp, i, si) {
     try { await runBackup(await backupDocument(src, sp, range, mid, midText, encOf(src)), backupBox); } finally { bBackup.disabled = false; }
   };
   const citeBase = `${srcName(src.url)} · ${srcHost(src.url)}`;
-  cite.textContent = `${citeBase} · ${rangeText(sp)}`;
+  cite.textContent = citeBase;
   const say = (cls, text, ...extra) => bytes.append(h('div', { class: cls }, text, ...extra));
   const repaint = () => { if (wrap.isConnected) paint(); };
 
   function paint() {
     bytes.replaceChildren();
-    if (!range) { bytes.append(h('p', { class: 'loading', text: 'Working out where this span is…' })); return; }
+    if (!range) { bytes.append(h('p', { class: 'loading', text: 'Finding the passage…' })); return; }
     if (range.error) { setMsg(range.error); say('err', range.error); return; }
     const len = range.b - range.a + 1;
-    lab.textContent = `Bytes ${n0(range.a)}–${n0(range.b)} · ${n0(len)} B`;
-    cite.textContent = `${citeBase} · bytes ${n0(range.a)}–${n0(range.b)} · ${n0(len)} B`;
     if (len > CAP && !sp.force) {
-      setMsg(`This span is ${fmtB(len)}.`);
-      say('note', `This span is ${fmtB(len)}. `, h('button', { type: 'button', text: 'Load it anyway', onclick: () => { sp.force = true; paint(); } }));
+      setMsg('This passage is very long.');
+      say('note', `This passage is very long (${fmtSize(len)} of text). `, h('button', { type: 'button', text: 'Load it anyway', onclick: () => { sp.force = true; paint(); } }));
       return;
     }
     if (!src.enc && !src.encReady) { ensureEnc(src).then(() => { if (!wrap.isConnected) return; if (encOf(src) !== encAtBuild) render(); else paint(); }); bytes.append(h('p', { class: 'loading', text: 'Loading…' })); return; }
     const wa = Math.max(0, range.a - S.ctx), wb = Math.min(range.b + S.ctx, wa + HARD - 1);
     const e = dataFor(src.url, wa, wb);
     if (e.state === 'loading') { e.waiters.add(repaint); bytes.append(h('p', { class: 'loading', text: 'Loading…' })); return; }
-    if (e.state === 'error') { setMsg('Couldn’t load this span.'); bytes.append(errBox(e.error, () => { forget(src.url, wa, wb); paint(); })); return; }
+    if (e.state === 'error') { setMsg('Couldn’t load this passage.'); bytes.append(errBox(e.error, () => { forget(src.url, wa, wb); paint(); })); return; }
     show(e.value, wa);
   }
 
@@ -1487,34 +1603,34 @@ function spanView(src, sp, i, si) {
     mid = all.subarray(s0, s0 + got);
     const before = all.subarray(0, s0), after = got === len ? all.subarray(bi + got) : new Uint8Array(0);
     const hasCtx = before.length + after.length > 0;
-    if (got > 0) lab.textContent = `Bytes ${n0(range.a)}–${n0(range.a + got - 1)} · ${n0(got)} B`;
     bSave.disabled = got === 0; bCopy.disabled = got === 0; bBackup.disabled = got === 0;
 
     const notes = [];
-    if (v.status === 416 || got === 0) { const t = v.total ?? sizes.get(src.url); notes.push(`This span starts beyond the end of the file${t != null ? ` (${n0(t)} bytes)` : ''}.`); }
-    else if (got < len) notes.push(`The file ends at byte ${n0(range.a + got - 1)}, so this span is ${n0(got)} bytes instead of ${n0(len)}.`);
-    if (range.unknownEnd && got >= CAP) notes.push(`The file’s size is unknown, so this open-ended span shows only its first ${fmtB(CAP)}.`);
-    if (v.ignoredRange) notes.push(`This server ignored the Range header, so the page read the file from the start up to this span (${fmtB(v.read)}).`);
+    if (v.status === 416 || got === 0) notes.push('This passage starts after the end of the document. The link may have been made for a different version of the file.');
+    else if (got < len) notes.push('The document ends before this passage does, so only the part that exists is shown.');
+    if (range.unknownEnd && got >= CAP) notes.push(`This passage runs to the end of the document, but the document’s length is unknown, so only the first ${fmtSize(CAP)} is shown.`);
+    if (v.ignoredRange) notes.push(`This server cannot send just a piece of the file, so the page read the document from its start to reach this passage (${fmtSize(v.read)}).`);
     if (adoptEnc(src, mid)) { setMsg('Re-reading in the right encoding…'); Promise.resolve().then(render); return; }
     const enc = encOf(src), dm = decodeText(mid, enc), bad = enc === 'utf8' ? invalidInside(mid) : 0;
     midText = dm.text;
-    if (enc === 'utf8') edgeNotes(mid).forEach(t => notes.push(`The span ${t}.`));
+    if (got > 0) {
+      const w = wordCount(midText), where = placeIn(range.a, v.total ?? sizes.get(src.url));
+      lab.textContent = `Passage · ${words(w)}`;
+      cite.textContent = [citeBase, words(w), where].filter(Boolean).join(' · ');
+    }
+    if (enc === 'utf8') edgeNotes(mid).forEach(t => notes.push(`The passage ${t}.`));
     notes.forEach(t => say('note', t));
     if (src.encNote) say('note', src.encNote);
-    if (bad > 0 && !looksBinary(mid)) say('note', `${n0(bad)} byte${bad === 1 ? ' is' : 's are'} not valid UTF-8 and show as �. `,
-      h('button', { type: 'button', text: 'Decode as Latin-1', onclick: () => { src.enc = 'latin1'; commit(); } }));
+    if (bad > 0 && !looksBinary(mid)) say('note', 'Some characters could not be read as UTF-8 and show as �. ',
+      h('button', { type: 'button', text: 'Try Latin-1', onclick: () => { src.enc = 'latin1'; commit(); } }));
 
     if (got === 0) { setMsg('Nothing here.'); return; }
     const doc = renderDoc(src, { before, mid, after }, enc, { max: 30000 });
     qbody.replaceChildren(doc.el);
-    if (doc.kind === 'binary') say('note', 'This looks like binary data, so the card shows its first bytes. The Hex view has the rest.');
-    if (doc.kind === 'html') say('note', 'Rendered from the span’s HTML. Scripts, styles and images are not loaded, and a span that starts or ends inside a tag can look odd.');
-    if (doc.clipped) say('note', `Showing the first ${n0(30000)} characters. The Raw text view has everything.`);
+    if (doc.kind === 'html') say('note', 'Rendered from the passage’s HTML. Scripts, styles and images are not loaded, and a passage that starts or ends inside a tag can look odd.');
+    if (doc.clipped) say('note', `Showing the first ${n0(30000)} characters. The plain-text view has everything.`);
 
-    if (S.view === 'hex') {
-      if (all.length > HEX_MAX) say('note', `Showing the first ${fmtB(HEX_MAX)} in hex. Copy and Save still use the whole span.`);
-      bytes.append(hexDump(all.subarray(0, Math.min(all.length, HEX_MAX)), wa, (idx, abs) => hasCtx ? (abs >= range.a && abs < range.a + got ? 'in' : 'ctx') : '', { max: HEX_MAX }));
-    } else if (S.view === 'text') {
+    if (S.view === 'text') {
       const pre = h('pre', { class: 'data' });
       if (hasCtx) pre.append(h('span', { class: 'ctx', text: decodeText(before, enc).text }), h('mark', { text: dm.text }), h('span', { class: 'ctx', text: decodeText(after, enc).text }));
       else pre.append(dm.text);
@@ -1571,6 +1687,13 @@ async function scanChunks(chunks, needle, { max = 100, cap = Infinity, matchCase
   return { matches, scanned, complete };
 }
 async function* streamFile(src, signal, onBytes) {
+  const id = localId(src.url);
+  if (id) {
+    const f = localFiles.get(id);
+    if (!f) throw new Error('That file has not been uploaded in this browser yet.');
+    for (let i = 0; i < f.bytes.length; i += 65536) { const c = f.bytes.subarray(i, i + 65536); onBytes(c.length); yield c; }
+    return;
+  }
   const res = await doFetch(src.url, { signal });
   if (!res.ok) throw new Error(`The server answered HTTP ${res.status}.`);
   const reader = res.body.getReader();
@@ -1578,58 +1701,68 @@ async function* streamFile(src, signal, onBytes) {
   finally { try { reader.cancel(); } catch { /* already closed */ } }
 }
 
-/* ---------- stage: file browser ---------- */
+/* ---------- stage: the reader ---------- */
+// The reader shows the document a page at a time and says where you are as a share of the whole.
+// A page is the characters that START in its window: a character cut by the window edge is read whole on the page it starts on.
 function browsePanel(src) {
   const B = src.browse;
   const box = h('section', { class: 'spanview' });
-  const prev = h('button', { type: 'button', text: '← Prev' }), next = h('button', { type: 'button', text: 'Next →' });
-  const offIn = h('input', { type: 'text', class: 'off', value: String(B.off), 'aria-label': 'Start offset', spellcheck: 'false' });
-  const go_ = h('button', { type: 'button', text: 'Go' });
-  const pageSel = select([[4096, '4 KiB'], [16384, '16 KiB'], [65536, '64 KiB']], B.page, v => { B.page = +v; setOff(B.off); });
+  const prev = h('button', { type: 'button', text: '← Previous' }), next = h('button', { type: 'button', text: 'Next →' });
+  const jump = h('input', { type: 'range', class: 'jump', min: '0', max: '1000', step: '1', value: '0', 'aria-label': 'Where in the document' });
+  const jumpBox = h('label', { class: 'jumpbox', hidden: true }, 'Jump to', jump);
   const info = h('span', { text: '' });
   const selInfo = h('span', { class: 'muted' });
-  const lab = h('input', { type: 'text', placeholder: 'label (optional)', 'aria-label': 'Label for the new span' });
-  const add = h('button', { type: 'button', class: 'primary', text: 'Add as span', disabled: true });
-  const view = h('div', { class: 'bview' });
+  const linkIn = h('input', { type: 'text', class: 'linkfield', readonly: true, 'aria-label': 'Link to the highlighted text', hidden: true });
+  const copyBtn = h('button', { type: 'button', class: 'primary', text: 'Copy link', hidden: true });
+  const add = h('button', { type: 'button', text: 'Keep in list', title: 'Keep this passage in the list on the left', hidden: true });
+  const view = h('div', { class: 'bview reader' });
   const findBox = h('div', { class: 'find' });
+  const findWrap = h('details', { class: 'findwrap' }, h('summary', { text: 'Find words in this document' }), findBox);
+  if (src.find) findWrap.open = true;
   box.append(
-    h('div', { class: 'shead' }, h('h2', { text: 'Browse and find' }), h('p', { text: S.view === 'hex' ? 'Drag across bytes to choose a span.' : 'Select text, then add it as a span. The offsets are exact bytes.' })),
-    h('div', { class: 'bytehead' }, h('span', { class: 'lab', text: 'Page' }), controls(src, false)),
-    findBox,
-    h('div', { class: 'bbar' }, prev, 'from byte', offIn, go_, next, 'page', pageSel, info),
-    view, h('div', { class: 'selbar' }, selInfo, lab, add));
+    h('div', { class: 'shead' }, h('h2', { text: srcName(src.url) }), h('p', { text: 'Highlight any words, and a link to exactly that text appears below.' })),
+    h('div', { class: 'bytehead' }, h('span', { class: 'lab', text: 'Reading' }), controls(src, false, true)),
+    h('div', { class: 'bbar' }, prev, next, info, h('span', { class: 'grow' }), jumpBox),
+    view, findWrap,
+    h('div', { class: 'linkbar' }, selInfo, linkIn, copyBtn, add));
 
-  const pageLen = () => S.view === 'hex' ? Math.min(B.page, HEX_PAGE) : B.page;
-  let token = 0, curPre = null, curOffs = null, a0 = 0, hexDrag = null;
-  const showSel = () => {
-    if (B.sel) { selInfo.textContent = `Selected bytes ${n0(B.sel.a)}–${n0(B.sel.b)} (${fmtB(B.sel.b - B.sel.a + 1)})`; add.disabled = false; }
-    else { selInfo.textContent = S.view === 'hex' ? 'Nothing selected.' : 'Nothing selected.'; add.disabled = true; }
+  const reach = () => encOf(src) === 'utf8' ? 3 : 0;                         // a UTF-8 character that starts in the window may end just past it
+  let token = 0, curPre = null, curOffs = null, curText = '', a0 = 0;
+  const showSel = () => {                                                    // what is highlighted, and the link to exactly that
+    const on = !!B.sel;
+    if (on) {
+      selInfo.textContent = `“${quoteOf(B.sel.text)}” · ${words(wordCount(B.sel.text))}`;
+      linkIn.value = spanLink(src, { kind: 'range', start: B.sel.a, end: B.sel.b, label: '' }, 160);
+    } else {
+      selInfo.textContent = 'Highlight words above to get a link to them.';
+      linkIn.value = '';
+    }
+    for (const el of [linkIn, copyBtn, add]) el.hidden = !on;
   };
-  const paintHexSel = () => view.querySelectorAll('i[data-o]').forEach(el => { const o = +el.dataset.o; el.classList.toggle('sel', !!B.sel && o >= B.sel.a && o <= B.sel.b); });
-  function setOff(v) { B.off = Math.max(0, v); B.sel = null; offIn.value = String(B.off); load(); }
-  prev.onclick = () => setOff(B.off - pageLen());
-  next.onclick = () => setOff(B.off + pageLen());
-  go_.onclick = () => { const r = parseRange(offIn.value); setOff(r && r.start != null ? r.start : B.off); };
-  offIn.addEventListener('keydown', ev => { if (ev.key === 'Enter') go_.onclick(); });
-  add.addEventListener('mousedown', ev => ev.preventDefault());          // keep the text selection alive
+  function setOff(v) { B.off = Math.max(0, Math.floor(v)); B.sel = null; load(); }
+  prev.onclick = () => setOff(B.off - READ_PAGE);
+  next.onclick = () => setOff(B.off + READ_PAGE);
+  jump.addEventListener('change', () => { const n = sizes.get(src.url); if (n) setOff(n * (+jump.value) / 1000); });
+  for (const b of [add, copyBtn]) b.addEventListener('mousedown', ev => ev.preventDefault());          // keep the text selection alive
+  linkIn.addEventListener('focus', () => linkIn.select());
+  copyBtn.onclick = () => { if (B.sel) copy(linkIn.value, copyBtn); };
+  const keep = (a, b_) => { src.spans.push({ kind: 'range', start: a, end: b_, label: '' }); syncUrl(); renderNav(); renderCrumbs(); syncChrome(); };
   add.onclick = () => {
     if (!B.sel) return;
     const top = stage.scrollTop;
-    src.spans.push({ kind: 'range', start: B.sel.a, end: B.sel.b, label: lab.value.trim() });
-    B.sel = null; lab.value = '';
-    syncUrl(); renderNav(); renderCrumbs(); syncChrome(); load(); stage.scrollTop = top;
+    keep(B.sel.a, B.sel.b);
+    B.sel = null; load(); stage.scrollTop = top;
   };
 
 
-  /* find in this file */
+  /* find in this document */
   {
-    const fq = h('input', { type: 'text', value: src.find || '', placeholder: 'Find in this file…', 'aria-label': 'Find in this file', autocomplete: 'off', spellcheck: 'false' });
+    const fq = h('input', { type: 'text', value: src.find || '', placeholder: 'Find words…', 'aria-label': 'Find words in this document', autocomplete: 'off', spellcheck: 'false' });
     const fcase = h('input', { type: 'checkbox' });
     const fstat = h('span', { class: 'muted' }), fres = h('div', { class: 'matches' });
     const fform = h('form', {}, fq, h('label', {}, fcase, 'Match case'), h('button', { type: 'submit', text: 'Find' }), fstat);
     findBox.append(fform, fres);
     let ctl = null;
-    const flat = t => t.replace(/\s+/g, ' ');                                          // regex-ok: whitespace, for a one-line preview
     async function runFind() {
       const text = fq.value;
       if (!text) return;
@@ -1637,20 +1770,22 @@ function browsePanel(src) {
       const my = ctl = new AbortController();
       const enc = encOf(src), needle = encodeNeedle(text, enc);
       fres.replaceChildren();
-      if (!needle) { fstat.textContent = 'That text has characters this encoding cannot hold. Try the other Decode setting.'; return; }
+      if (!needle) { fstat.textContent = 'Those letters can’t be found while the document is read this way. Try another setting under “Letters look wrong?”.'; return; }
       const total = sizes.get(src.url); let seen = 0;
       fstat.textContent = 'Searching…';
       try {
-        const out = await scanChunks(streamFile(src, my.signal, n => { seen += n; if (box.isConnected) fstat.textContent = `Searching… ${fmtB(seen)}${total ? ' of ' + fmtB(total) : ''}`; }), needle, { max: 100, cap: SKIP_CAP, matchCase: fcase.checked });
+        const out = await scanChunks(streamFile(src, my.signal, n => { seen += n; if (box.isConnected) fstat.textContent = total ? `Searching… ${Math.min(99, Math.round(100 * seen / total))}%` : 'Searching…'; }), needle, { max: 100, cap: SKIP_CAP, matchCase: fcase.checked });
         if (my !== ctl || !box.isConnected) return;
+        const partial = out.complete ? '' : ` Only the first ${fmtSize(out.scanned)} of the document was searched.`;
         fstat.textContent = out.matches.length
-          ? `${out.matches.length}${out.matches.length >= 100 ? '+' : ''} ${out.matches.length === 1 ? 'match' : 'matches'}${out.complete ? '' : ` in the first ${fmtB(out.scanned)}`}.`
-          : `No match${out.complete ? '' : ` in the first ${fmtB(out.scanned)}`}.${fcase.checked ? '' : ' ASCII letters match in either case.'}`;
+          ? `${out.matches.length}${out.matches.length >= 100 ? '+' : ''} ${out.matches.length === 1 ? 'match' : 'matches'}.${partial}`
+          : `No match.${partial}${fcase.checked ? '' : ' Plain letters match in either case.'}`;
         fres.replaceChildren(...out.matches.map(m => h('div', { class: 'match' },
-          h('span', { class: 'mo', text: `${n0(m.a)}–${n0(m.b)}` }),
-          h('span', { class: 'mt' }, h('span', { class: 'ctx', text: flat(decodeText(m.before, enc).text) }), h('mark', { text: flat(decodeText(m.hit, enc).text) }), h('span', { class: 'ctx', text: flat(decodeText(m.after, enc).text) })),
-          h('button', { type: 'button', text: 'Add span', onclick: () => { src.spans.push({ kind: 'range', start: m.a, end: m.b, label: '' }); syncUrl(); renderNav(); renderCrumbs(); syncChrome(); } }),
-          h('button', { type: 'button', text: 'View', onclick: () => { setOff(Math.max(0, m.a - 300)); stage.scrollTop += view.getBoundingClientRect().top - stage.getBoundingClientRect().top - 70; } }))));
+          h('span', { class: 'mo', text: total ? `${Math.round(100 * m.a / total)}%` : '' }),
+          h('span', { class: 'mt' }, h('span', { class: 'ctx', text: oneLine(decodeText(m.before, enc).text) }), ' ', h('mark', { text: oneLine(decodeText(m.hit, enc).text) }), ' ', h('span', { class: 'ctx', text: oneLine(decodeText(m.after, enc).text) })),
+          h('button', { type: 'button', class: 'primary', text: 'Copy link', onclick: ev => copy(spanLink(src, { kind: 'range', start: m.a, end: m.b, label: '' }, 160), ev.currentTarget) }),
+          h('button', { type: 'button', text: 'Read here', onclick: () => { setOff(Math.max(0, m.a - 300)); stage.scrollTop += view.getBoundingClientRect().top - stage.getBoundingClientRect().top - 70; } }),
+          h('button', { type: 'button', text: 'Keep in list', onclick: () => keep(m.a, m.b) }))));
       } catch (err) { if (my === ctl && box.isConnected) fstat.textContent = explain(err).msg; }
     }
     fform.addEventListener('submit', ev => { ev.preventDefault(); src.find = fq.value; runFind(); });
@@ -1668,28 +1803,18 @@ function browsePanel(src) {
     return +node.dataset.c + (off === 0 ? 0 : node.textContent.length);
   }
   whileConnected(box, document, 'selectionchange', () => {
-    if (S.view !== 'text' || !curPre) return;
+    if (!curPre) return;
     const s = getSelection();
     if (!s || s.rangeCount === 0 || s.isCollapsed) return;
     const r = s.getRangeAt(0);
     if (!r.intersectsNode(curPre)) return;
     const c0 = charIdx(r.startContainer, r.startOffset), c1 = charIdx(r.endContainer, r.endOffset);
     if (c1 <= c0) return;
-    B.sel = { a: a0 + curOffs[c0], b: a0 + curOffs[c1] - 1 };
+    const text = curText.slice(c0, c1);
+    if (!text.trim()) return;                                  // blank space is not a passage
+    B.sel = { a: a0 + curOffs[c0], b: a0 + curOffs[c1] - 1, text };
     showSel();
   });
-  view.addEventListener('mousedown', ev => {
-    const t = ev.target.closest && ev.target.closest('i[data-o]');
-    if (!t || S.view !== 'hex') return;
-    ev.preventDefault(); hexDrag = +t.dataset.o; B.sel = { a: hexDrag, b: hexDrag }; paintHexSel(); showSel();
-  });
-  view.addEventListener('mouseover', ev => {
-    if (hexDrag == null) return;
-    const t = ev.target.closest && ev.target.closest('i[data-o]');
-    if (!t) return;
-    const o = +t.dataset.o; B.sel = { a: Math.min(hexDrag, o), b: Math.max(hexDrag, o) }; paintHexSel(); showSel();
-  });
-  whileConnected(box, document, 'mouseup', () => { hexDrag = null; });
 
   function marks(a, len) {
     const out = [];
@@ -1703,37 +1828,42 @@ function browsePanel(src) {
   function draw(e, my) {
     if (my !== token || !box.isConnected) return;
     view.replaceChildren(); curPre = null; B.sel = null; showSel();
-    if (e.state === 'error') { view.append(errBox(e.error, () => { forget(src.url, B.off, B.off + pageLen() - 1); load(); })); return; }
-    const bytes = e.value.bytes;
-    if (!bytes.length) { view.append(h('p', { class: 'loading', text: 'That is past the end of the file.' })); info.textContent = ''; return; }
-    if (adoptEnc(src, bytes)) { Promise.resolve().then(render); return; }
-    const size = sizes.get(src.url);
-    info.textContent = `bytes ${n0(B.off)}–${n0(B.off + bytes.length - 1)}${size != null ? ' of ' + n0(size) : ''}`;
-    next.disabled = size != null ? B.off + bytes.length >= size : bytes.length < pageLen();
-    prev.disabled = B.off === 0;
-    const ms = marks(B.off, bytes.length);
-    if (S.view === 'hex') {
-      view.append(hexDump(bytes, B.off, (idx, abs) => ms.some(([lo, hi]) => abs >= lo && abs <= hi) ? 'in' : '', { perByte: true, pick: true }));
-      paintHexSel(); return;
+    if (e.state === 'error') { view.append(errBox(e.error, () => { forget(src.url, B.off, B.off + READ_PAGE - 1 + reach()); load(); })); return; }
+    const raw = e.value.bytes;
+    if (!raw.length) { view.append(h('p', { class: 'loading', text: 'That is past the end of the document.' })); info.textContent = ''; return; }
+    if (adoptEnc(src, raw)) { Promise.resolve().then(render); return; }
+    const size = sizes.get(src.url), utf = encOf(src) === 'utf8';
+    let from = 0, to = Math.min(raw.length, READ_PAGE);
+    if (utf) {
+      if (B.off > 0) while (from < 3 && from < raw.length && (raw[from] & 0xC0) === 0x80) from++;     // the end of a character the page before began
+      while (to < raw.length && (raw[to] & 0xC0) === 0x80) to++;                                      // the end of a character this page began
     }
+    const bytes = raw.subarray(from, to), base = B.off + from;
+    const pct = n => Math.min(100, Math.max(0, Math.round(100 * n / size)));
+    info.textContent = size == null ? '' : base === 0 && base + bytes.length >= size ? 'The whole document' : `${pct(base)}% to ${pct(base + bytes.length)}% of the way through`;
+    jumpBox.hidden = !size || size <= READ_PAGE;
+    if (size) jump.value = String(Math.round(1000 * base / size));
+    next.disabled = size != null ? B.off + READ_PAGE >= size : raw.length <= READ_PAGE;
+    prev.disabled = B.off === 0;
+    if (looksBinary(bytes)) { view.append(h('div', { class: 'note' }, 'This is not text (it looks like a picture, a PDF or another kind of file), so there are no words to highlight.')); return; }
+    const ms = marks(base, bytes.length);
     const dec = decodeText(bytes, encOf(src));
-    a0 = B.off; curOffs = dec.offs;
-    const cuts = ms.map(([lo, hi]) => [lower(dec.offs, lo - B.off), lower(dec.offs, hi - B.off + 1)]).filter(([x, y]) => y > x).sort((p, q) => p[0] - q[0]);
+    a0 = base; curOffs = dec.offs; curText = dec.text;
+    const cuts = ms.map(([lo, hi]) => [lower(dec.offs, lo - base), lower(dec.offs, hi - base + 1)]).filter(([x, y]) => y > x).sort((p, q) => p[0] - q[0]);
     const merged = [];
     for (const c of cuts) { const l = merged[merged.length - 1]; if (l && c[0] <= l[1]) l[1] = Math.max(l[1], c[1]); else merged.push([...c]); }
-    const pre = h('pre', { class: 'data', 'data-len': dec.text.length });
+    const pre = h('pre', { class: 'data reader' + (needsMono(dec.text) ? ' mono' : ''), 'data-len': dec.text.length });
     const seg_ = (c0, c1, marked) => c1 > c0 && pre.append(h('span', { class: marked ? 'seg mark' : 'seg', 'data-c': c0, text: dec.text.slice(c0, c1) }));
     let pos = 0;
     for (const [c0, c1] of merged) { seg_(pos, c0, false); seg_(c0, c1, true); pos = c1; }
     seg_(pos, dec.text.length, false);
     view.append(pre); curPre = pre;
-    const badPage = encOf(src) === 'utf8' ? invalidInside(bytes) : 0;
-    if (badPage > 0 && !looksBinary(bytes)) view.append(h('div', { class: 'note' }, `${n0(badPage)} byte${badPage === 1 ? '' : 's'} on this page are not valid UTF-8. `,
-      h('button', { type: 'button', text: 'Decode as Latin-1', onclick: () => { src.enc = 'latin1'; commit(); } })));
+    if (utf && invalidInside(bytes) > 0) view.append(h('div', { class: 'note' }, 'Some characters on this page could not be read as UTF-8. ',
+      h('button', { type: 'button', text: 'Try Latin-1', onclick: () => { src.enc = 'latin1'; commit(); } })));
   }
   function load() {
-    const my = ++token, len = pageLen();
-    const e = dataFor(src.url, B.off, B.off + len - 1);
+    const my = ++token;
+    const e = dataFor(src.url, B.off, B.off + READ_PAGE - 1 + reach());
     view.replaceChildren(h('p', { class: 'loading', text: 'Loading…' }));
     prev.disabled = B.off === 0;
     if (e.state === 'loading') e.waiters.add(() => draw(e, my)); else draw(e, my);
@@ -1759,7 +1889,7 @@ function ghPicker(src) {
     crumb.replaceChildren(`${repo} at ${sha ? sha.slice(0, 7) : '…'}${path ? ' / ' + path : ''} `, path && h('button', { type: 'button', class: 'ghost', text: '← up', onclick: () => load(path.split('/').slice(0, -1).join('/')) }));
     const rows = entries.filter(f => !q || f.name.toLowerCase().includes(q));
     list.replaceChildren(...rows.slice(0, 250).map(f => h('button', { type: 'button', onclick: () => f.type === 'dir' ? load(f.path) : pick(f) },
-      f.name + (f.type === 'dir' ? '/' : ''), h('span', { text: f.type === 'dir' ? 'folder' : fmtB(f.size) }))));
+      f.name + (f.type === 'dir' ? '/' : ''), h('span', { text: f.type === 'dir' ? 'folder' : fmtSize(f.size) }))));
     if (!rows.length) list.append(h('p', { class: 'muted', text: 'Nothing here.' }));
   }
   async function load(p) {
@@ -1787,7 +1917,7 @@ function pickerUI(src) {
     list.replaceChildren(...rows.slice(0, 250).map(f => h('button', {
       type: 'button',
       onclick: () => { src.url = `https://archive.org/download/${encodeURIComponent(id)}/${f.name.split('/').map(encodeURIComponent).join('/')}`; src.needPicker = null; normalize(src); commit(); },
-    }, f.name, h('span', { text: `${f.format || ''}${f.size ? ' · ' + fmtB(+f.size) : ''}` }))));
+    }, f.name, h('span', { text: `${f.format || ''}${f.size ? ' · ' + fmtSize(+f.size) : ''}` }))));
     if (rows.length > 250) list.append(h('p', { class: 'muted', text: `…and ${rows.length - 250} more. Type to narrow the list.` }));
     if (!rows.length) list.append(h('p', { class: 'muted', text: 'No files match.' }));
   };
@@ -1805,12 +1935,13 @@ function stageSource(inner) {
   const src = S.sources[S.focus.si], si = S.focus.si;
   if (src.note) inner.append(h('div', { class: 'note', style: 'margin-top:14px', text: src.note }));
   if (src.error) { inner.append(h('div', { class: 'shead' }, h('h2', { text: 'Can’t load this' })), h('div', { class: 'err', text: src.error })); return; }
+  if (src.needFile) { inner.append(needFileUI(src)); return; }
   if (src.needPicker) {
-    inner.append(h('div', { class: 'shead' }, h('h2', { text: src.needPicker }), h('p', { text: src.pickerKind === 'gh' ? 'A GitHub repository. Pick a file; it opens pinned to the commit you see here.' : 'An archive.org item. Pick the file to read spans from.' })), pickerUI(src));
+    inner.append(h('div', { class: 'shead' }, h('h2', { text: src.needPicker }), h('p', { text: src.pickerKind === 'gh' ? 'A GitHub repository. Pick a file; it opens pinned to the commit you see here.' : 'An archive.org item. Pick the file to read passages from.' })), pickerUI(src));
     return;
   }
   const perm = permanence(src.url);
-  if (perm && perm.pin === 'github') inner.append(h('div', { class: 'note', style: 'margin-top:14px' }, 'This link follows a branch, so the file can change and your offsets would drift. ', h('button', { type: 'button', text: 'Pin to the current commit', onclick: ev => { ev.currentTarget.textContent = 'Pinning…'; pinGithub(src).catch(err => { ev.currentTarget.textContent = explain(err).msg; }); } })));
+  if (perm && perm.pin === 'github') inner.append(h('div', { class: 'note', style: 'margin-top:14px' }, 'This link follows a branch, so the file can change and your passages could slip. ', h('button', { type: 'button', text: 'Pin to the current commit', onclick: ev => { ev.currentTarget.textContent = 'Pinning…'; pinGithub(src).catch(err => { ev.currentTarget.textContent = explain(err).msg; }); } })));
   if (proxy) inner.append(h('div', { class: 'note', style: 'margin-top:14px', text: `Loading through your proxy at ${srcHost(proxy.replace('{url}', 'x'))}.` }));
   const p = partOf(src, S.focus.part);
   inner.append(p === 'b' ? browsePanel(src) : spanView(src, src.spans[p], p, si));
@@ -1876,6 +2007,16 @@ if (mq.addEventListener) mq.addEventListener('change', () => { if (themePref ===
 
 /* ---------- wiring ---------- */
 $('#brand').onclick = openIndex;
+$('#uploadbtn').onclick = () => $('#filein').click();
+$('#filein').addEventListener('change', ev => { addFiles(ev.target.files); ev.target.value = ''; });
+{ // drop a file anywhere on the page
+  let depth = 0;
+  const hasFiles = ev => ev.dataTransfer && [...(ev.dataTransfer.types || [])].includes('Files');
+  document.addEventListener('dragenter', ev => { if (hasFiles(ev)) { depth++; shell.classList.add('dropping'); } });
+  document.addEventListener('dragover', ev => { if (hasFiles(ev)) ev.preventDefault(); });
+  document.addEventListener('dragleave', ev => { if (hasFiles(ev) && --depth <= 0) { depth = 0; shell.classList.remove('dropping'); } });
+  document.addEventListener('drop', ev => { if (!hasFiles(ev)) return; ev.preventDefault(); depth = 0; shell.classList.remove('dropping'); addFiles(ev.dataTransfer.files); });
+}
 $('#navtoggle').onclick = () => { shell.classList.add('anim'); shell.classList.toggle('nav-open'); };
 $('#scrim').onclick = () => shell.classList.remove('nav-open');
 $('#theme').onclick = toggleTheme;
@@ -1883,19 +2024,6 @@ $('#copylink').onclick = ev => copy(shareLink(), ev.currentTarget);
 $('#usebtn').onclick = () => post('select', snapshot());
 $('#closebtn').onclick = () => post('close');
 $('#addsrc').addEventListener('submit', ev => { ev.preventDefault(); addFromInput($('#url').value); $('#url').value = ''; });
-$('#addspan').addEventListener('submit', ev => {
-  ev.preventDefault();
-  const src = S.sources[S.focus.si], msg = $('#spanmsg');
-  const parts = $('#spaninput').value.split(',').map(s => s.trim()).filter(Boolean);
-  const parsed = parts.map(parseRange);
-  if (!parts.length || parsed.some(p => !p)) { msg.textContent = 'Use a range like 1000-1199, 1000+200, 4096- or -512.'; return; }
-  msg.textContent = '';
-  const label = $('#spanlabel').value.trim();
-  parsed.forEach(p => { p.label = parsed.length === 1 ? label : ''; src.spans.push(p); });
-  $('#spaninput').value = ''; $('#spanlabel').value = '';
-  S.focus.part = src.spans.length - 1;
-  commit();
-});
 document.addEventListener('keydown', ev => {
   if (ev.key !== 'Escape') return;
   if (shell.classList.contains('nav-open')) shell.classList.remove('nav-open');
@@ -1906,14 +2034,14 @@ window.addEventListener('hashchange', loadRoute);
 /* ---------- host page protocol (modal) ---------- */
 function openFromHost(m) {
   const list = Array.isArray(m.sources) ? m.sources : (typeof m.url === 'string' ? [{ url: m.url, spans: m.spans }] : []);
-  const st = { sources: [], ctx: Number.isInteger(m.ctx) ? Math.min(65536, Math.max(0, m.ctx)) : 0, view: m.view === 'hex' ? 'hex' : m.view === 'text' ? 'text' : 'doc', enc: 'utf8', focus: undefined, search: null, errors: [] };
+  const st = { sources: [], ctx: Number.isInteger(m.ctx) ? Math.min(65536, Math.max(0, m.ctx)) : 0, view: m.view === 'text' || m.view === 'hex' ? 'text' : 'doc', enc: 'utf8', focus: undefined, search: null, errors: [] };
   for (const x of list.slice(0, 50)) {
     if (!x || typeof x.url !== 'string') continue;
     const src = newSource(x.url);
     src.enc = encFromLabel(x.enc || m.enc) || null;                  // per source, falling back to the message's default
     for (const s of (Array.isArray(x.spans) ? x.spans.slice(0, 500) : [])) {
       const sp = spanFromHost(s);
-      if (sp) src.spans.push(sp); else st.errors.push('A span from the host page could not be read.');
+      if (sp) src.spans.push(sp); else st.errors.push('A passage from the host page could not be read.');
     }
     st.sources.push(src);
   }

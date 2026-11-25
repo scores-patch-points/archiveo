@@ -14,7 +14,7 @@ const code = [
   between('const n0 =', '/* ---------- span grammar'),
   between('/* ---------- span grammar', '/* ---------- source links'),
   between('/* ---------- source links', '/* ---------- settings'),
-  between('/* ---------- decoding', '/* ---------- hex dump'),
+  between('/* ---------- decoding', '/* ---------- the span as the original wrote it'),
   between('/* ---------- the span as the original wrote it', '/* ---------- state'),
   between('/* ---------- find in a file', 'async function* streamFile'),
 ].join('\n');

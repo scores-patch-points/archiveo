@@ -11,10 +11,12 @@ assert.strictEqual(R('99999999999999999999-99999999999999999999'), null);
 const lab = 'a b,c:d%e';
 assert.deepStrictEqual(parseSpanToken(spanToken({kind:'range',start:10,end:20,label:lab})), {kind:'range',start:10,end:20,label:lab});
 // routes + focus
-let st = parseRoute('#u=https://archive.org/download/x/y.txt&s=0-9:one&s=20-29,40-49&e=latin1&f=1.2&c=64&v=hex');
+let st = parseRoute('#u=https://archive.org/download/x/y.txt&s=0-9:one&s=20-29,40-49&e=latin1&f=1.2&c=64&v=text');
 assert.strictEqual(st.sources[0].spans.length,3); assert.deepStrictEqual(st.focus,{si:0,part:1}); assert.strictEqual(st.ctx,64);
 st.focus = resolveFocus(st.focus, st.sources);
-assert.strictEqual(toHash(st), 'u=https://archive.org/download/x/y.txt&s=0-9:one&s=20-29&s=40-49&e=latin1&f=1.2&c=64&v=hex');
+assert.strictEqual(toHash(st), 'u=https://archive.org/download/x/y.txt&s=0-9:one&s=20-29&s=40-49&e=latin1&f=1.2&c=64&v=text');
+// links made when there was a hex view still open, as plain text
+assert.strictEqual(parseRoute('#u=https://a.test/f&s=1-2&v=hex').view, 'text'); assert.strictEqual(toHash(parseRoute('#u=https://a.test/f&s=1-2&v=hex')).includes('v=hex'), false);
 // single source, default part: f is omitted; any other state writes f
 let one = parseRoute('#u=https://a.test/f&s=1-2&s=5-6'); one.focus = resolveFocus(one.focus, one.sources);
 assert.deepStrictEqual(one.focus,{si:0,part:null}); assert.strictEqual(toHash(one),'u=https://a.test/f&s=1-2&s=5-6');
@@ -54,13 +56,22 @@ assert.strictEqual(d.offs[d.text.length], b.length);
 d = decodeText(new Uint8Array([0x41,0xE4,0x42,0xC0,0x80,0xED,0xA0,0x80]),'utf8'); assert.strictEqual(d.invalid, 6);
 d = decodeText(new Uint8Array([0x6b,0xE4,0x69]),'latin1'); assert.strictEqual(d.text,'käi');
 d = decodeText(enc.encode('a😀b'),'utf8'); assert.deepStrictEqual([...d.offs],[0,1,1,5,6]); assert.strictEqual(lower(d.offs,2),3);
-assert.deepStrictEqual(edgeNotes(enc.encode('日本').subarray(1)), ['starts in the middle of a multi-byte character']);
-assert.deepStrictEqual(edgeNotes(enc.encode('日本').subarray(0,4)), ['ends in the middle of a multi-byte character']);
+assert.deepStrictEqual(edgeNotes(enc.encode('日本').subarray(1)), ['starts partway through a character, so its first letter may look wrong']);
+assert.deepStrictEqual(edgeNotes(enc.encode('日本').subarray(0,4)), ['ends partway through a character, so its last letter may look wrong']);
 // binary sniffing for quote cards
 assert.strictEqual(looksBinary(enc.encode('plain text with\nnewlines\r\n and tabs\t')), false);
 assert.strictEqual(looksBinary(new Uint8Array([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,0x0d,0x49,0x48,0x44,0x52,0,0,0,1])), true);
 assert.strictEqual(looksBinary(new Uint8Array(0)), false);
-assert.strictEqual(hexPreview(new Uint8Array([1,255,16])), '01 ff 10');
+// people read words, never bytes: sizes, word counts, quotations and places
+assert.strictEqual(fmtSize(0), 'under 1 KB'); assert.strictEqual(fmtSize(999), 'under 1 KB'); assert.strictEqual(fmtSize(41200), '41 KB'); assert.strictEqual(fmtSize(2500000), '2.5 MB');
+assert.strictEqual(wordCount('teach the woods to echo'), 5); assert.strictEqual(wordCount('  \n '), 0); assert.strictEqual(wordCount("don't stop — it's here"), 4);
+assert.strictEqual(words(1), '1 word'); assert.strictEqual(words(23), '23 words'); assert.strictEqual(words(1200, false), 'about 1,200 words');
+assert.strictEqual(quoteOf('teach the woods to echo'), 'teach the woods to echo');
+assert.strictEqual(quoteOf('Tityrus, you lie under the spreading beech and tune a woodland muse on a slender reed, while we leave our native land'), 'Tityrus, you lie under the spreading … leave our native land');
+assert.strictEqual(quoteOf('  one\n\n two\t three '), 'one two three');
+assert.strictEqual(openingOf('Tityrus, you lie under the spreading beech and tune a woodland muse'), 'Tityrus, you lie under the spreading beech…');
+assert.strictEqual(openingOf('short one'), 'short one');
+assert.strictEqual(placeIn(0, 1000), 'at the very start'); assert.strictEqual(placeIn(400, 1000), '40% of the way through'); assert.strictEqual(placeIn(995, 1000), 'at the very end'); assert.strictEqual(placeIn(5, null), '');
 
 // --- per-source encoding: e= belongs to the u= before it
 let en = parseRoute('#u=https://a.test/f&s=1-2&e=latin1&u=https://b.test/g&s=3-4&f=0');
@@ -180,4 +191,30 @@ let so = parseRoute('#q=bucolica&p=wiki&m=la.wikisource.org'); assert.deepStrict
 assert.strictEqual(parseRoute('#q=x&m=' + encodeURIComponent('evil.com/x?y')).search.m, '');              // not an option-shaped value
 const optOf2 = (prov, m) => prov.options ? (prov.options.some(o => o[0] === m) ? m : prov.defaultOption) : '';
 assert.strictEqual(optOf2({ options: [['a', 'A'], ['b', 'B']], defaultOption: 'a' }, 'evil.com'), 'a');
+// --- uploaded files: addressed by content hash, held in memory, never fetched as a URL
+const H64 = 'a'.repeat(64);
+let lf = newSource('local:' + H64); normalize(lf);
+assert.strictEqual(lf.error, null); assert.strictEqual(lf.url, 'local:' + H64); assert.strictEqual(lf.needFile, true);      // known by hash, but the file itself is not here yet
+localFiles.set(H64, { name: 'poem.txt', bytes: new Uint8Array(3), type: 'text/plain' }); localNames.set(H64, 'poem.txt');
+lf = newSource('local:' + H64); normalize(lf); assert.strictEqual(lf.needFile, false);
+assert.strictEqual(srcName('local:' + H64), 'poem.txt'); assert.strictEqual(srcHost('local:' + H64), 'this computer'); assert.strictEqual(permanence('local:' + H64).ok, true);
+assert.strictEqual(localId('local:' + H64), H64); assert.strictEqual(localId('local:xyz'), null); assert.strictEqual(localId('https://a.test/local:' + H64), null);
+let badLocal = newSource('local:xyz'); normalize(badLocal); assert.ok(badLocal.error);                                    // not a hash, so not a file
+assert.strictEqual(srcName('local:' + 'b'.repeat(64)), 'uploaded file');                                                   // a hash we know nothing else about
+// the file's name travels in the link, and nothing else about the visitor's computer does
+let up = parseRoute('#u=local:' + H64 + '&n=poem%20one.txt&s=1-5'); assert.strictEqual(up.sources[0].name, 'poem one.txt');
+up.focus = resolveFocus(up.focus, up.sources, up.search); assert.strictEqual(toHash(up), 'u=local:' + H64 + '&n=poem%20one.txt&s=1-5');
+assert.strictEqual(toHash(parseRoute('#u=https://a.test/f&n=ignored&s=1-2')).includes('n='), false);                          // a name only means something for an uploaded file
+// --- a link to just the highlighted text
+const sl = newSource('https://archive.org/download/x/y.txt');
+assert.strictEqual(spanLink(sl, { kind: 'range', start: 843, end: 860, label: '' }, 160), 'https://x.github.io/repo/index.html#u=https://archive.org/download/x/y.txt&s=843-860&c=160');
+sl.enc = 'latin1'; assert.ok(spanLink(sl, { kind: 'range', start: 1, end: 2, label: '' }).endsWith('&s=1-2&e=latin1'));
+const sl2 = newSource('local:' + H64); sl2.name = 'a b.txt';
+assert.ok(spanLink(sl2, { kind: 'range', start: 0, end: 0, label: '' }).includes('&n=a%20b.txt&s=0-0'));
+// opening the link gives back the same source, span, name and context
+const reopened = parseRoute('#' + spanLink(sl2, { kind: 'range', start: 5, end: 9, label: '' }, 160).split('#')[1]);
+assert.deepStrictEqual(reopened.sources[0].spans[0], { kind: 'range', start: 5, end: 9, label: '' }); assert.strictEqual(reopened.ctx, 160);
+assert.strictEqual(reopened.sources[0].name, 'a b.txt'); assert.strictEqual(reopened.sources[0].url, 'local:' + H64);
+const reopened2 = parseRoute('#' + spanLink(sl, { kind: 'range', start: 843, end: 860, label: '' }, 160).split('#')[1]);
+assert.strictEqual(reopened2.sources[0].url, 'https://archive.org/download/x/y.txt'); assert.strictEqual(reopened2.sources[0].spans[0].end, 860); assert.strictEqual(reopened2.sources[0].enc, 'latin1');
 console.log('all pure-function tests passed');

@@ -1,6 +1,8 @@
 # archiveo
 
-Cite exact bytes. Point archiveo at a link, name the byte ranges you mean, and the ranges live in the page URL, so a link to the page is a citation anyone can open. It can also search archives to find the source, and it runs as a modal on another page.
+Link to the exact words. Add a document by **typing its address or uploading a file**, **highlight** the words you want, and a link to exactly that text appears at once, ready to copy. It opens right on those words for anyone. It can also search archives to find the source, and it runs as a modal on another page.
+
+The page speaks in words, quotations and places in the document ("12 words", "40% of the way through"), never in bytes. A link does hold exact byte positions, because that is what keeps it pointing at the same words, but you never read, type or choose them; they are described under *For developers* below.
 
 One static site, no build step, no server. `index.html` is the whole app.
 
@@ -20,11 +22,19 @@ Run it locally with any static server, for example `python3 -m http.server 8962`
 
 ## What it does
 
-**Spans in the URL.** `#u=<link>&s=1000-1199:label&s=-512` is source `u`, a labeled range, and the last 512 bytes. Ranges are inclusive like an HTTP `Range` header, accept hex (`0x400-0x4ff`), `start+length`, `start-` (to the end) and `-n` (the last n). `e=` sets a source's encoding, `c=` adds context bytes, `v=` picks the view, `f=` the open part, `q=`/`p=`/`m=` a search. The full grammar is in the page under "Link format".
+**Add, highlight, link.** One box takes a link (or words, to search the archives); an Upload button, or dropping a file anywhere on the page, takes a file from your computer. Either way you land in a reader. Highlight any text and a bar pinned to the bottom quotes what you highlighted and counts its words, shows the link to exactly that text (with a little of the text around it, so it reads in place), and offers **Copy link** and **Keep in list**. Opening that link shows the passage highlighted in its context. The reader pages through the document and says where you are as a share of the whole; a slider jumps to any point. **Find words in this document** lists every match with its own **Copy link**.
 
-**Layout.** Sources sit in the left panel. Open one and the panel becomes that source's parts, with the span as a quotation in the middle and its exact bytes under it. Light and dark follow the system and can be toggled.
+The list on the left names each passage by its own opening words and counts its words, so nothing in it is a number you have to decode. There is no hex view and no box for typing a range: highlight the words instead. Files that are not text (a picture, a PDF) say so rather than showing their contents.
 
-**The span as the original wrote it.** The default view keeps the line breaks, indentation, blank lines, tabs and page breaks of the text, and chooses a fixed-width face only when the layout depends on one (a table, aligned columns, a ruled box; Alhazen's `readGridFromText` makes that call). HTML is rebuilt through an allow-list: nothing runs, loads or inherits styles, and elements the page hid stay hidden. "Raw text" and "Hex" show the bytes themselves.
+**Uploaded files.** A file you upload is read in your browser and never sent anywhere. It is named by the SHA-256 of its bytes (`u=local:<hash>`, plus its file name as `n=`), so a link to it identifies the exact bytes, and whoever opens the link is asked to upload the same file; a different file is refused. That makes the link a verifiable citation, but not something a stranger can open without the file. A file up to 100 MB is held in memory.
+
+## For developers: how a link is built
+
+**Spans in the URL.** `#u=<link>&s=1000-1199:label&s=-512` is source `u`, a labeled range, and the last 512 bytes. This is what highlighting writes for you; the page itself never asks anyone to type it. Ranges are inclusive like an HTTP `Range` header, accept hex (`0x400-0x4ff`), `start+length`, `start-` (to the end) and `-n` (the last n). `e=` sets a source's encoding, `c=` adds context bytes, `v=text` opens the plain-text view (`v=hex`, from older links, also opens it), `f=` the open part, `q=`/`p=`/`m=` a search. The full grammar is in the page under "For developers: how a link is built".
+
+**Layout.** Documents sit in the left panel. Open one and the panel becomes that document's passages, with the passage as a quotation in the middle. Light and dark follow the system and can be toggled.
+
+**The span as the original wrote it.** The default view keeps the line breaks, indentation, blank lines, tabs and page breaks of the text, and chooses a fixed-width face only when the layout depends on one (a table, aligned columns, a ruled box; Alhazen's `readGridFromText` makes that call). HTML is rebuilt through an allow-list: nothing runs, loads or inherits styles, and elements the page hid stay hidden. "Plain text" shows the passage as text, with the words around it if you ask.
 
 **Encodings.** Each source is read in the encoding the *file* declares (an HTML or XML declaration, Project Gutenberg's header line), else a byte-order mark, else what the bytes show, else UTF-8. A server's `charset=utf-8` is treated as a default, not evidence: archive.org says UTF-8 for every text file, including Gutenberg files that are ISO-8859-1. Single-byte encodings (Windows-125x, ISO-8859-x, KOI8) are supported; `e=` overrides detection.
 
@@ -38,7 +48,7 @@ Run it locally with any static server, for example `python3 -m http.server 8962`
 | Wikimedia | Wikisource, Wikipedia, Wikibooks, Wikiquote | a **pinned revision** of the page |
 | Git archives | GITenberg (Project Gutenberg), Standard Ebooks | a file **pinned to a commit** |
 
-Inside a file, **Find** scans the whole file (up to 64 MiB) and turns each hit into exact byte offsets you can add as a span.
+Inside a document, **Find** scans the whole file (up to 64 MB) and turns each hit into a passage you can copy a link to or keep in the list.
 
 **Permanence.** A span is only meaningful if the file never changes, so each source is marked *Permanent* or *Can change*. Wiki pages open at a revision, git files at a commit SHA, archive.org and LOC files at their archive addresses. A GitHub link that follows a branch can be pinned to its current commit with one click. Note that Wikimedia's HTML for a revision is regenerated when their parser changes, so for strict byte stability prefer archive.org or Gutenberg files.
 
